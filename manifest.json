@@ -1,5 +1,4 @@
 {
-  <link rel="manifest" href="manifest.json">
   "name": "알까기",
   "short_name": "알까기",
   "start_url": "index.html",
@@ -13,4 +12,5 @@
       "type": "image/png"
     }
   ]
+  <link rel="manifest" href="manifest.json">
 }
