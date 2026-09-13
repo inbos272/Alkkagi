@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>알까기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<style>
+  :root{
+    --felt-dark:#0d1712;
+    --felt-mid:#16241d;
+    --wood-rim:#8a5a35;
+    --wood-rim-dark:#5c3820;
+    --wood-face:#6b4226;
+    --wood-grain:#4a2e1a;
+    --cream:#f2e9dc;
+    --cream-dim:#c9bfae;
+    --gold:#d9a441;
+    --danger:#c65a4a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    background: radial-gradient(ellipse at 50% 30%, var(--felt-mid), var(--felt-dark) 75%);
+    font-family:'Noto Sans KR', sans-serif;
+    color:var(--cream);
+    overflow:hidden;
+    user-select:none;
+  }
+  .display{font-family:'Jua', sans-serif;}
+
+  #app{position:relative; width:100vw; height:100vh; display:flex; align-items:center; justify-content:center;}
+
+  /* ---------- Setup screen ---------- */
+  #setupScreen{
+    display:flex; flex-direction:column; align-items:center; gap:28px;
+    padding:32px; text-align:center;
+    animation: fadeIn .5s ease;
+  }
+  #setupScreen h1{
+    font-size:clamp(48px,10vw,84px);
+    margin:0;
+    color:var(--gold);
+    letter-spacing:2px;
+    text-shadow: 0 3px 0 rgba(0,0,0,.35);
+  }
+  #setupScreen p.sub{
+    margin:0; color:var(--cream-dim); font-size:15px; line-height:1.7; max-width:360px;
+  }
+  .stepper{
+    display:flex; align-items:center; gap:22px;
+  }
+  .stepBtn{
+    width:56px; height:56px; border-radius:50%;
+    border:2px solid var(--wood-rim);
+    background: linear-gradient(180deg, var(--wood-face), var(--wood-rim-dark));
+    color:var(--cream); font-size:28px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; box-shadow: inset 0 2px 0 rgba(255,255,255,.08), 0 3px 6px rgba(0,0,0,.4);
+    transition: transform .08s ease;
+  }
+  .stepBtn:active{ transform: scale(.92); }
+  #playerCountNum{
+    font-family:'Jua', sans-serif; font-size:56px; width:90px; text-align:center; color:var(--cream);
+  }
+  #playerCountLabel{ font-size:13px; color:var(--cream-dim); margin-top:-14px; }
+  .colorPreviewRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:340px; }
+  .colorDot{ width:22px; height:22px; border-radius:50%; box-shadow: inset 0 -3px 4px rgba(0,0,0,.35), 0 2px 3px rgba(0,0,0,.4); }
+
+  #playerConfigList{
+    display:flex; flex-direction:column; gap:8px;
+    width:100%; max-width:300px; max-height:34vh; overflow-y:auto;
+    padding:4px 2px;
+  }
+  .playerRow{
+    display:flex; align-items:center; gap:10px;
+    padding:8px 12px;
+    background:rgba(0,0,0,.22);
+    border-radius:10px;
+  }
+  .playerRow .dot{ width:15px; height:15px; border-radius:50%; flex-shrink:0; box-shadow: inset 0 -2px 3px rgba(0,0,0,.35); }
+  .playerRowLabel{ flex:1; text-align:left; font-size:14px; color:var(--cream); }
+  .aiToggleBtn{
+    padding:6px 16px; font-size:13px; font-weight:500;
+    border-radius:999px; border:1.5px solid var(--wood-rim);
+    background:transparent; color:var(--cream-dim);
+    cursor:pointer;
+  }
+  .aiToggleBtn.isAI{
+    background:linear-gradient(180deg, var(--gold), #b9812c);
+    border-color:#b9812c; color:#2b1a0d; font-weight:700;
+  }
+  #startBtn{
+    margin-top:6px;
+    padding:16px 46px;
+    font-family:'Jua', sans-serif; font-size:22px; letter-spacing:1px;
+    color:#2b1a0d;
+    background: linear-gradient(180deg, var(--gold), #b9812c);
+    border:none; border-radius:14px;
+    cursor:pointer;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 5px 0 #8a5f1e, 0 8px 14px rgba(0,0,0,.45);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  #startBtn:active{ transform: translateY(4px); box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 1px 0 #8a5f1e, 0 3px 8px rgba(0,0,0,.4); }
+
+  /* ---------- Game screen ---------- */
+  #gameScreen{
+    display:none;
+    position:relative;
+    width:100%; height:100%;
+    align-items:center; justify-content:center;
+    flex-direction:column;
+  }
+  #hud{
+    position:absolute; top:18px; left:0; right:0;
+    display:flex; align-items:center; justify-content:center;
+    gap:12px;
+    z-index:5;
+    pointer-events:none;
+  }
+  #turnPlaque{
+    pointer-events:auto;
+    display:flex; align-items:center; gap:10px;
+    padding:10px 22px;
+    background:linear-gradient(180deg, var(--wood-face), var(--wood-rim-dark));
+    border:2px solid var(--wood-rim);
+    border-radius:999px;
+    box-shadow:0 4px 10px rgba(0,0,0,.4);
+    font-size:16px;
+    transition: box-shadow .2s ease;
+  }
+  #turnPlaque .dot{ width:16px; height:16px; border-radius:50%; box-shadow: inset 0 -2px 3px rgba(0,0,0,.35); flex-shrink:0; }
+  #turnPlaque.pulse{ box-shadow:0 0 0 4px rgba(217,164,65,.35), 0 4px 10px rgba(0,0,0,.4); }
+
+  #iconBtns{ position:absolute; top:18px; right:18px; display:flex; gap:10px; z-index:5; }
+  .iconBtn{
+    width:42px; height:42px; border-radius:50%;
+    border:2px solid var(--wood-rim);
+    background: linear-gradient(180deg, var(--wood-face), var(--wood-rim-dark));
+    color:var(--cream); font-size:18px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    box-shadow: 0 3px 6px rgba(0,0,0,.4);
+  }
+  .iconBtn:active{ transform: scale(.92); }
+
+  #legend{
+    position:absolute; bottom:16px; left:0; right:0;
+    display:flex; justify-content:center; gap:14px; flex-wrap:wrap;
+    z-index:5; padding:0 12px;
+  }
+  .legendChip{
+    display:flex; align-items:center; gap:6px;
+    font-size:12px; color:var(--cream-dim);
+    padding:5px 10px; border-radius:999px;
+    background:rgba(0,0,0,.25);
+    transition: opacity .3s ease;
+  }
+  .legendChip .dot{ width:11px; height:11px; border-radius:50%; }
+  .legendChip.out{ opacity:.35; text-decoration:line-through; }
+
+  canvas#board{ touch-action:none; display:block; }
+
+  #winOverlay{
+    display:none; position:absolute; inset:0; z-index:10;
+    align-items:center; justify-content:center; flex-direction:column; gap:18px;
+    background:rgba(10,14,11,.72);
+    animation: fadeIn .35s ease;
+  }
+  #winOverlay .winDot{ width:64px; height:64px; border-radius:50%; box-shadow:0 0 30px 6px currentColor, inset 0 -6px 10px rgba(0,0,0,.3); }
+  #winOverlay h2{ font-family:'Jua',sans-serif; font-size:clamp(32px,7vw,52px); margin:0; color:var(--gold); }
+  #winOverlay p{ margin:0; color:var(--cream-dim); font-size:14px; }
+  #playAgainBtn{
+    margin-top:8px; padding:14px 38px;
+    font-family:'Jua', sans-serif; font-size:18px; color:#2b1a0d;
+    background:linear-gradient(180deg, var(--gold), #b9812c);
+    border:none; border-radius:12px; cursor:pointer;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 5px 0 #8a5f1e, 0 8px 14px rgba(0,0,0,.4);
+  }
+  #playAgainBtn:active{ transform:translateY(4px); box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 1px 0 #8a5f1e; }
+
+  @keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="setupScreen">
+    <h1 class="display">알까기</h1>
+    <p class="sub">둥근 판 위에서 내 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요.<br>다른 알을 판 밖으로 쳐내고 마지막까지 남으세요.<br>플레이어를 AI로 설정하면 컴퓨터가 직접 조준하고 당기는 모습을 볼 수 있어요.</p>
+
+    <div>
+      <div class="stepper">
+        <button class="stepBtn" id="decBtn">−</button>
+        <div>
+          <div id="playerCountNum" class="display">4</div>
+        </div>
+        <button class="stepBtn" id="incBtn">+</button>
+      </div>
+      <div id="playerCountLabel">플레이어 수 (2~8명)</div>
+    </div>
+
+    <div>
+      <div class="stepper">
+        <button class="stepBtn" id="decStoneBtn">−</button>
+        <div>
+          <div id="stoneCountNum" class="display">8</div>
+        </div>
+        <button class="stepBtn" id="incStoneBtn">+</button>
+      </div>
+      <div id="playerCountLabel">알 개수 (총, 순서대로 나눠 가져요)</div>
+    </div>
+
+    <div id="playerConfigList"></div>
+    <div class="colorPreviewRow hidden" id="colorPreview"></div>
+
+    <button id="startBtn">시작하기</button>
+  </div>
+
+  <div id="gameScreen">
+    <div id="hud">
+      <div id="turnPlaque"><span class="dot" id="turnDot"></span><span id="turnText">플레이어 1 차례</span></div>
+    </div>
+    <div id="iconBtns">
+      <button class="iconBtn" id="muteBtn" title="음소거">🔊</button>
+      <button class="iconBtn" id="restartBtn" title="다시 시작">⟳</button>
+    </div>
+    <canvas id="board"></canvas>
+    <div id="legend"></div>
+
+    <div id="winOverlay">
+      <div class="winDot" id="winDot"></div>
+      <h2 id="winText">플레이어 1 승리!</h2>
+      <p>알까기가 끝났어요</p>
+      <button id="playAgainBtn">다시 하기</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------------------------------------------------------------
+  // Constants & palette
+  // ---------------------------------------------------------------
+  const PALETTE = [
+    {name:'빨강',  hex:'#E6394B'},
+    {name:'파랑',  hex:'#4C7BD9'},
+    {name:'노랑',  hex:'#F2B705'},
+    {name:'초록',  hex:'#2A9D8F'},
+    {name:'보라',  hex:'#9B5DE5'},
+    {name:'주황',  hex:'#F77F00'},
+    {name:'분홍',  hex:'#FF6FA8'},
+    {name:'하늘',  hex:'#06AED5'}
+  ];
+
+  const FRICTION_K = 1.5;        // exponential velocity decay factor per second
+  const STOP_SPEED = 6;          // px/s below which a stone is considered stopped
+  const MAX_PULL_RATIO = 0.34;   // fraction of board radius = max pull distance
+  const MAX_LAUNCH_SPEED = 1.45; // multiplier applied to boardRadius to get px/s at full pull
+  const STONE_RADIUS_RATIO = 0.085; // fraction of board radius
+
+  // ---------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------
+  let playerCount = 4;
+  let stoneCount = 8;
+  let playerAI = [false,true,true,true,true,true,true,true]; // index 0 human by default, rest AI
+  let players = [];     // {index, color, isAI}
+  let stones = [];      // {x,y,vx,vy,r,color,alive,fallAnim,playerIndex}
+  let turnOrder = [];
+  let currentTurn = 0;
+  let phase = 'setup';  // setup | waiting | dragging | settling | gameover
+  let boardRadius = 0;
+  let boardCenter = {x:0,y:0};
+  let dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let canvas, ctx;
+  let drag = null; // {anchorX, anchorY, curX, curY, stone}
+  let audioReady = false;
+  let muted = false;
+  let contactPairs = new Set();
+  let lastTime = 0;
+  let woodPattern = null;
+  let gameId = 0; // bumped every restart so stale AI timers can no-op
+
+  // ---------------------------------------------------------------
+  // Setup screen wiring
+  // ---------------------------------------------------------------
+  const playerCountNum = document.getElementById('playerCountNum');
+  const stoneCountNum = document.getElementById('stoneCountNum');
+
+  const STONE_MAX_TOTAL = 24;
+
+  function clampStoneCount(){
+    const min = playerCount;
+    const max = Math.min(STONE_MAX_TOTAL, playerCount*4);
+    stoneCount = Math.max(min, Math.min(max, stoneCount));
+    stoneCountNum.textContent = stoneCount;
+  }
+
+  function renderPlayerConfig(){
+    const wrap = document.getElementById('playerConfigList');
+    wrap.innerHTML = '';
+    for(let i=0;i<playerCount;i++){
+      const row = document.createElement('div');
+      row.className = 'playerRow';
+
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = PALETTE[i].hex;
+
+      const label = document.createElement('span');
+      label.className = 'playerRowLabel';
+      label.textContent = '플레이어 ' + (i+1);
+
+      const toggle = document.createElement('button');
+      toggle.className = 'aiToggleBtn' + (playerAI[i] ? ' isAI' : '');
+      toggle.textContent = playerAI[i] ? 'AI' : '사람';
+      toggle.addEventListener('click', ()=>{
+        playerAI[i] = !playerAI[i];
+        toggle.textContent = playerAI[i] ? 'AI' : '사람';
+        toggle.classList.toggle('isAI', playerAI[i]);
+      });
+
+      row.appendChild(dot);
+      row.appendChild(label);
+      row.appendChild(toggle);
+      wrap.appendChild(row);
+    }
+  }
+  renderPlayerConfig();
+
+  document.getElementById('decBtn').addEventListener('click', ()=>{
+    playerCount = Math.max(2, playerCount-1);
+    playerCountNum.textContent = playerCount;
+    clampStoneCount();
+    renderPlayerConfig();
+  });
+  document.getElementById('incBtn').addEventListener('click', ()=>{
+    playerCount = Math.min(8, playerCount+1);
+    playerCountNum.textContent = playerCount;
+    if(playerAI[playerCount-1] === undefined) playerAI[playerCount-1] = true;
+    clampStoneCount();
+    renderPlayerConfig();
+  });
+  document.getElementById('decStoneBtn').addEventListener('click', ()=>{
+    stoneCount = Math.max(playerCount, stoneCount-1);
+    stoneCountNum.textContent = stoneCount;
+  });
+  document.getElementById('incStoneBtn').addEventListener('click', ()=>{
+    stoneCount = Math.min(Math.min(STONE_MAX_TOTAL, playerCount*4), stoneCount+1);
+    stoneCountNum.textContent = stoneCount;
+  });
+
+  document.getElementById('startBtn').addEventListener('click', async ()=>{
+    await initAudio();
+    startGame();
+  });
+  document.getElementById('playAgainBtn').addEventListener('click', ()=>{
+    document.getElementById('winOverlay').style.display = 'none';
+    startGame();
+  });
+  document.getElementById('restartBtn').addEventListener('click', ()=>{
+    document.getElementById('winOverlay').style.display = 'none';
+    startGame();
+  });
+  document.getElementById('muteBtn').addEventListener('click', ()=>{
+    muted = !muted;
+    document.getElementById('muteBtn').textContent = muted ? '🔇' : '🔊';
+    if(bgLoop){ Tone.Destination.mute = muted; }
+  });
+
+  // ---------------------------------------------------------------
+  // Audio (Tone.js)
+  // ---------------------------------------------------------------
+  let pluck, thud, whoosh, dropSynth, winSynth, bgSynth, bgLoop, bgPart;
+
+  async function initAudio(){
+    if(audioReady) return;
+    await Tone.start();
+
+    const masterVol = new Tone.Volume(-6).toDestination();
+
+    pluck = new Tone.MembraneSynth({
+      pitchDecay: 0.008, octaves: 3,
+      envelope:{attack:0.001, decay:0.15, sustain:0}
+    }).connect(masterVol);
+
+    thud = new Tone.MembraneSynth({
+      pitchDecay: 0.02, octaves: 2,
+      envelope:{attack:0.001, decay:0.1, sustain:0}
+    }).connect(masterVol);
+
+    whoosh = new Tone.NoiseSynth({
+      noise:{type:'pink'},
+      envelope:{attack:0.01, decay:0.08, sustain:0}
+    }).connect(new Tone.Filter(1200,'lowpass').connect(masterVol));
+
+    dropSynth = new Tone.Synth({
+      oscillator:{type:'sine'},
+      envelope:{attack:0.01, decay:0.4, sustain:0, release:0.1}
+    }).connect(masterVol);
+
+    winSynth = new Tone.PolySynth(Tone.Synth, {
+      oscillator:{type:'triangle'},
+      envelope:{attack:0.01, decay:0.3, sustain:0.2, release:0.6}
+    }).connect(masterVol);
+
+    // gentle ambient background loop (soft marimba-ish pentatonic wander)
+    bgSynth = new Tone.PolySynth(Tone.Synth, {
+      oscillator:{type:'sine'},
+      envelope:{attack:0.02, decay:0.6, sustain:0.1, release:1.2}
+    }).connect(new Tone.Volume(-20).connect(new Tone.Reverb(2.5).connect(masterVol)));
+
+    const scale = ['C4','D4','E4','G4','A4','C5','D5','E5'];
+    bgLoop = new Tone.Loop((time)=>{
+      if(Math.random() < 0.75){
+        const note = scale[Math.floor(Math.random()*scale.length)];
+        bgSynth.triggerAttackRelease(note, '4n', time, 0.5);
+      }
+    }, '2n').start(0);
+
+    Tone.Transport.start();
+    audioReady = true;
+  }
+
+  function sPull(dist01){
+    if(muted || !audioReady) return;
+    whoosh.volume.value = -18 + dist01*10;
+    whoosh.triggerAttackRelease('16n');
+  }
+  function sLaunch(power01){
+    if(!audioReady) return;
+    pluck.volume.value = -8 + power01*10;
+    pluck.triggerAttackRelease('C2', '8n');
+  }
+  function sCollide(impact01){
+    if(!audioReady) return;
+    const note = 90 - impact01*30;
+    thud.volume.value = -14 + impact01*16;
+    thud.triggerAttackRelease(note, '16n');
+  }
+  function sFall(){
+    if(!audioReady) return;
+    dropSynth.triggerAttackRelease('A3', 0.4);
+    dropSynth.frequency.rampTo(80, 0.4);
+    setTimeout(()=>{ dropSynth.frequency.value = 220; }, 420);
+  }
+  function sWin(){
+    if(!audioReady) return;
+    const now = Tone.now();
+    winSynth.triggerAttackRelease('C4', '8n', now);
+    winSynth.triggerAttackRelease('E4', '8n', now+0.12);
+    winSynth.triggerAttackRelease('G4', '8n', now+0.24);
+    winSynth.triggerAttackRelease('C5', '4n', now+0.36);
+  }
+
+  // ---------------------------------------------------------------
+  // Game setup
+  // ---------------------------------------------------------------
+  function startGame(){
+    document.getElementById('setupScreen').style.display = 'none';
+    document.getElementById('gameScreen').style.display = 'flex';
+
+    canvas = document.getElementById('board');
+    ctx = canvas.getContext('2d');
+
+    gameId++;
+    drag = null;
+
+    players = [];
+    for(let i=0;i<playerCount;i++){
+      players.push({ index:i, color: PALETTE[i].hex, name: '플레이어 ' + (i+1), alive:true, isAI: !!playerAI[i] });
+    }
+
+    sizeCanvas();
+    placeStones();
+
+    turnOrder = players.map(p=>p.index);
+    currentTurn = 0;
+    phase = 'waiting';
+    contactPairs.clear();
+
+    buildLegend();
+    updateTurnHUD();
+    maybeRunAI();
+
+    if(!rafRunning){ rafRunning = true; lastTime = performance.now(); requestAnimationFrame(loop); }
+  }
+
+  function sizeCanvas(){
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const size = Math.floor(Math.min(vw, vh) * 0.84);
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    const oldRadius = boardRadius;
+    boardRadius = size/2 - size*0.03;
+    boardCenter = {x:size/2, y:size/2};
+
+    if(oldRadius && stones.length){
+      const ratio = boardRadius/oldRadius;
+      stones.forEach(s=>{
+        s.x = boardCenter.x + (s.x - boardCenter.x)*ratio;
+        s.y = boardCenter.y + (s.y - boardCenter.y)*ratio;
+        s.r = boardRadius * STONE_RADIUS_RATIO;
+      });
+    }
+  }
+
+  function placeStones(){
+    stones = [];
+    const r = boardRadius * STONE_RADIUS_RATIO;
+    const safeR = boardRadius - r - boardRadius*0.04;
+
+    // distribute the total stone count round-robin across players
+    const counts = new Array(playerCount).fill(0);
+    for(let k=0;k<stoneCount;k++){ counts[k%playerCount]++; }
+    const assignments = [];
+    for(let p=0;p<playerCount;p++){ for(let c=0;c<counts[p];c++) assignments.push(p); }
+
+    const minGap = r * (assignments.length > 16 ? 2.15 : 2.5);
+    assignments.forEach(playerIndex=>{
+      let pos, tries = 0, ok = false;
+      while(tries < 400 && !ok){
+        const ang = Math.random()*Math.PI*2;
+        const rad = Math.sqrt(Math.random()) * safeR;
+        const x = boardCenter.x + Math.cos(ang)*rad;
+        const y = boardCenter.y + Math.sin(ang)*rad;
+        ok = true;
+        for(const s of stones){
+          const dx = x-s.x, dy = y-s.y;
+          if(Math.hypot(dx,dy) < minGap){ ok = false; break; }
+        }
+        if(ok) pos = {x,y};
+        tries++;
+      }
+      if(!pos) pos = {x:boardCenter.x, y:boardCenter.y};
+      stones.push({
+        x:pos.x, y:pos.y, vx:0, vy:0, r,
+        color: players[playerIndex].color, alive:true, playerIndex,
+        fallProgress: 0
+      });
+    });
+  }
+
+  function buildLegend(){
+    const legend = document.getElementById('legend');
+    legend.innerHTML = '';
+    players.forEach(p=>{
+      const chip = document.createElement('div');
+      chip.className = 'legendChip';
+      chip.id = 'legend-'+p.index;
+      legend.appendChild(chip);
+    });
+    updateLegend();
+  }
+
+  function stoneCountFor(playerIndex){
+    return stones.filter(s=>s.playerIndex===playerIndex && s.alive).length;
+  }
+
+  function updateLegend(){
+    players.forEach(p=>{
+      const chip = document.getElementById('legend-'+p.index);
+      if(!chip) return;
+      const count = stoneCountFor(p.index);
+      chip.innerHTML = '<span class="dot" style="background:'+p.color+'"></span><span>'+p.name+(p.isAI?' · AI':'')+' · 알 '+count+'개</span>';
+      chip.classList.toggle('out', !p.alive);
+    });
+  }
+
+  function updateTurnHUD(){
+    const p = players[turnOrder[currentTurn]];
+    document.getElementById('turnDot').style.background = p.color;
+    document.getElementById('turnText').textContent = p.name + (p.isAI ? ' (AI) 차례' : ' 차례');
+  }
+
+  function aliveCount(){ return players.filter(p=>p.alive).length; }
+
+  function nextTurn(){
+    if(aliveCount() <= 1){
+      endGame();
+      return;
+    }
+    let tries = 0;
+    do{
+      currentTurn = (currentTurn+1) % turnOrder.length;
+      tries++;
+    } while(!players[turnOrder[currentTurn]].alive && tries <= turnOrder.length);
+    updateTurnHUD();
+    phase = 'waiting';
+    maybeRunAI();
+  }
+
+  function endGame(){
+    phase = 'gameover';
+    const winner = players.find(p=>p.alive);
+    const overlay = document.getElementById('winOverlay');
+    document.getElementById('winDot').style.background = winner ? winner.color : '#999';
+    document.getElementById('winDot').style.color = winner ? winner.color : '#999';
+    document.getElementById('winText').textContent = winner ? (winner.name + ' 승리!') : '무승부';
+    overlay.style.display = 'flex';
+    sWin();
+  }
+
+  // ---------------------------------------------------------------
+  // Input (pointer events)
+  // ---------------------------------------------------------------
+  function getCanvasPos(e){
+    const rect = canvas.getBoundingClientRect();
+    return { x: (e.clientX-rect.left) * (parseFloat(canvas.style.width)/rect.width),
+             y: (e.clientY-rect.top) * (parseFloat(canvas.style.height)/rect.height) };
+  }
+
+  function onPointerDown(e){
+    if(phase !== 'waiting') return;
+    const activePlayerIndex = turnOrder[currentTurn];
+    if(players[activePlayerIndex].isAI) return; // AI plays itself
+
+    const pos = getCanvasPos(e);
+    let best = null, bestD = Infinity;
+    stones.forEach(s=>{
+      if(s.playerIndex !== activePlayerIndex || !s.alive) return;
+      const d = Math.hypot(pos.x-s.x, pos.y-s.y);
+      if(d <= s.r*2.2 && d < bestD){ bestD = d; best = s; }
+    });
+    if(best){
+      drag = { anchorX: best.x, anchorY: best.y, curX: pos.x, curY: pos.y, stone: best };
+      phase = 'dragging';
+      canvas.setPointerCapture(e.pointerId);
+    }
+  }
+  let lastPullSound = 0;
+  function onPointerMove(e){
+    if(phase !== 'dragging' || !drag) return;
+    const pos = getCanvasPos(e);
+    const maxPull = boardRadius * MAX_PULL_RATIO;
+    let dx = pos.x - drag.anchorX, dy = pos.y - drag.anchorY;
+    const dist = Math.hypot(dx,dy);
+    if(dist > maxPull){
+      dx = dx/dist*maxPull; dy = dy/dist*maxPull;
+    }
+    drag.curX = drag.anchorX + dx;
+    drag.curY = drag.anchorY + dy;
+
+    const now = performance.now();
+    if(now - lastPullSound > 90){
+      sPull(Math.min(dist,maxPull)/maxPull);
+      lastPullSound = now;
+    }
+  }
+  function releaseDrag(d){
+    const maxPull = boardRadius * MAX_PULL_RATIO;
+    const dx = d.curX - d.anchorX, dy = d.curY - d.anchorY;
+    const dist = Math.hypot(dx,dy);
+    const power = Math.min(dist, maxPull)/maxPull;
+
+    if(power > 0.04){
+      const nx = -dx/(dist||1), ny = -dy/(dist||1);
+      const speed = power * MAX_LAUNCH_SPEED * boardRadius;
+      d.stone.vx = nx*speed;
+      d.stone.vy = ny*speed;
+      sLaunch(power);
+      phase = 'settling';
+    } else {
+      phase = 'waiting';
+    }
+  }
+
+  function onPointerUp(e){
+    if(phase !== 'dragging' || !drag) return;
+    releaseDrag(drag);
+    drag = null;
+  }
+
+  // ---------------------------------------------------------------
+  // AI
+  // ---------------------------------------------------------------
+  function maybeRunAI(){
+    if(phase !== 'waiting') return;
+    const activePlayerIndex = turnOrder[currentTurn];
+    const player = players[activePlayerIndex];
+    if(!player || !player.isAI) return;
+    const myGameId = gameId;
+    setTimeout(()=>{
+      if(myGameId !== gameId || phase !== 'waiting') return;
+      if(turnOrder[currentTurn] !== activePlayerIndex) return;
+      runAIMove(activePlayerIndex, myGameId);
+    }, 550 + Math.random()*500);
+  }
+
+  function runAIMove(playerIndex, myGameId){
+    const own = stones.filter(s=>s.playerIndex===playerIndex && s.alive);
+    const enemies = stones.filter(s=>s.playerIndex!==playerIndex && s.alive);
+    if(own.length===0 || enemies.length===0) return;
+
+    const stone = own[Math.floor(Math.random()*own.length)];
+    const sorted = enemies.slice().sort((a,b)=>{
+      const da = Math.hypot(a.x-stone.x, a.y-stone.y);
+      const db = Math.hypot(b.x-stone.x, b.y-stone.y);
+      return da-db;
+    });
+    const target = (Math.random() < 0.75 || sorted.length===1) ? sorted[0] : sorted[1];
+
+    const dist = Math.hypot(target.x-stone.x, target.y-stone.y);
+    let angle = Math.atan2(target.y-stone.y, target.x-stone.x);
+    angle += (Math.random()-0.5) * 0.3; // aim imperfection
+
+    let power = 0.55 + dist/(boardRadius*2.2);
+    power += (Math.random()-0.5) * 0.18;
+    power = Math.max(0.35, Math.min(1, power));
+
+    const maxPull = boardRadius * MAX_PULL_RATIO;
+    const anchorX = stone.x, anchorY = stone.y;
+    const dirX = Math.cos(angle), dirY = Math.sin(angle);
+    const targetDragX = anchorX - dirX*power*maxPull;
+    const targetDragY = anchorY - dirY*power*maxPull;
+
+    drag = { anchorX, anchorY, curX: anchorX, curY: anchorY, stone };
+    phase = 'dragging';
+
+    const duration = 480;
+    const start = performance.now();
+    let lastSoundT = 0;
+
+    function tick(now){
+      if(myGameId !== gameId || phase !== 'dragging' || !drag || drag.stone !== stone) return;
+      const t = Math.min(1, (now-start)/duration);
+      const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+      drag.curX = anchorX + (targetDragX-anchorX)*ease;
+      drag.curY = anchorY + (targetDragY-anchorY)*ease;
+      if(now - lastSoundT > 90){ sPull(ease*power); lastSoundT = now; }
+      if(t < 1){
+        requestAnimationFrame(tick);
+      } else {
+        setTimeout(()=>{
+          if(myGameId !== gameId || !drag || drag.stone !== stone) return;
+          releaseDrag(drag);
+          drag = null;
+        }, 130);
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function bindCanvasEvents(){
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('pointercancel', onPointerUp);
+  }
+
+  // ---------------------------------------------------------------
+  // Physics
+  // ---------------------------------------------------------------
+  function stepPhysics(dt){
+    const decay = Math.exp(-FRICTION_K*dt);
+    let anyMoving = false;
+
+    stones.forEach(s=>{
+      if(!s.alive) return;
+      s.x += s.vx*dt;
+      s.y += s.vy*dt;
+      s.vx *= decay;
+      s.vy *= decay;
+      if(Math.hypot(s.vx,s.vy) < STOP_SPEED){ s.vx = 0; s.vy = 0; }
+      else anyMoving = true;
+    });
+
+    // collisions
+    for(let i=0;i<stones.length;i++){
+      const a = stones[i];
+      if(!a.alive) continue;
+      for(let j=i+1;j<stones.length;j++){
+        const b = stones[j];
+        if(!b.alive) continue;
+        const dx = b.x-a.x, dy = b.y-a.y;
+        const dist = Math.hypot(dx,dy) || 0.0001;
+        const minDist = a.r+b.r;
+        const key = i+'-'+j;
+        if(dist < minDist){
+          const nx = dx/dist, ny = dy/dist;
+          const rvx = b.vx-a.vx, rvy = b.vy-a.vy;
+          const velAlongNormal = rvx*nx + rvy*ny;
+          if(velAlongNormal < 0){
+            a.vx += nx*velAlongNormal;
+            a.vy += ny*velAlongNormal;
+            b.vx -= nx*velAlongNormal;
+            b.vy -= ny*velAlongNormal;
+            if(!contactPairs.has(key)){
+              contactPairs.add(key);
+              sCollide(Math.min(1, Math.abs(velAlongNormal)/(boardRadius*1.2)));
+            }
+          }
+          const overlap = (minDist-dist)/2;
+          a.x -= nx*overlap; a.y -= ny*overlap;
+          b.x += nx*overlap; b.y += ny*overlap;
+          anyMoving = true;
+        } else if(dist > minDist*1.15){
+          contactPairs.delete(key);
+        }
+      }
+    }
+
+    // boundary / fall off
+    stones.forEach(s=>{
+      if(!s.alive) return;
+      const d = Math.hypot(s.x-boardCenter.x, s.y-boardCenter.y);
+      if(d > boardRadius - s.r*0.15 && s.fallProgress === 0){
+        s.fallProgress = 0.0001;
+        s.fallVx = s.vx; s.fallVy = s.vy;
+        sFall();
+      }
+      if(s.fallProgress > 0){
+        s.fallProgress += dt*2.2;
+        s.x += s.fallVx*dt*0.5;
+        s.y += s.fallVy*dt*0.5;
+        if(s.fallProgress >= 1){
+          s.alive = false;
+          const stillHasStones = stones.some(o=>o.playerIndex===s.playerIndex && o.alive);
+          if(!stillHasStones){ players[s.playerIndex].alive = false; }
+          updateLegend();
+        }
+        anyMoving = true;
+      }
+    });
+
+    if(!anyMoving && phase === 'settling'){
+      nextTurn();
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------
+  function drawBoard(){
+    const cw = parseFloat(canvas.style.width), ch = parseFloat(canvas.style.height);
+    ctx.clearRect(0,0,cw,ch);
+
+    // outer shadow
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(boardCenter.x, boardCenter.y+boardRadius*0.05, boardRadius*1.02, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.filter = 'blur(14px)';
+    ctx.fill();
+    ctx.restore();
+
+    // rim
+    const rimGrad = ctx.createRadialGradient(
+      boardCenter.x, boardCenter.y, boardRadius*0.7,
+      boardCenter.x, boardCenter.y, boardRadius*1.05
+    );
+    rimGrad.addColorStop(0, '#7a4b29');
+    rimGrad.addColorStop(1, '#4a2e1a');
+    ctx.beginPath();
+    ctx.arc(boardCenter.x, boardCenter.y, boardRadius*1.05, 0, Math.PI*2);
+    ctx.fillStyle = rimGrad;
+    ctx.fill();
+
+    // inner face
+    const faceGrad = ctx.createRadialGradient(
+      boardCenter.x - boardRadius*0.25, boardCenter.y - boardRadius*0.3, boardRadius*0.1,
+      boardCenter.x, boardCenter.y, boardRadius
+    );
+    faceGrad.addColorStop(0, '#7c5030');
+    faceGrad.addColorStop(0.7, '#6b4226');
+    faceGrad.addColorStop(1, '#583417');
+    ctx.beginPath();
+    ctx.arc(boardCenter.x, boardCenter.y, boardRadius, 0, Math.PI*2);
+    ctx.fillStyle = faceGrad;
+    ctx.fill();
+
+    // subtle wood grain rings
+    ctx.save();
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(0,0,0,0.10)';
+    ctx.lineWidth = 2;
+    for(let i=1;i<=6;i++){
+      ctx.beginPath();
+      ctx.arc(boardCenter.x+boardRadius*0.08, boardCenter.y-boardRadius*0.05, boardRadius*i/6.4, 0, Math.PI*2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // center emblem ring
+    ctx.beginPath();
+    ctx.arc(boardCenter.x, boardCenter.y, boardRadius*0.16, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(242,233,220,0.12)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // inner edge highlight
+    ctx.beginPath();
+    ctx.arc(boardCenter.x, boardCenter.y, boardRadius*0.985, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  }
+
+  function drawStones(){
+    stones.forEach(s=>{
+      if(!s.alive && s.fallProgress >= 1) return;
+      ctx.save();
+      const scale = s.fallProgress > 0 ? Math.max(0, 1-s.fallProgress) : 1;
+      const alpha = s.fallProgress > 0 ? Math.max(0,1-s.fallProgress) : 1;
+      ctx.globalAlpha = alpha;
+      ctx.translate(s.x, s.y);
+      ctx.scale(scale, scale);
+
+      // contact shadow (tight, flat — a disc sitting on the board, not a floating ball)
+      ctx.beginPath();
+      ctx.ellipse(s.r*0.08, s.r*0.14, s.r*0.98, s.r*0.86, 0, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fill();
+
+      // outer rim — the thin edge/lip of the stone (slightly darker than the face)
+      ctx.beginPath();
+      ctx.arc(0,0,s.r,0,Math.PI*2);
+      ctx.fillStyle = darken(s.color, 30);
+      ctx.fill();
+
+      // flat top face, slightly inset — matte, not glossy
+      const faceR = s.r*0.9;
+      ctx.beginPath();
+      ctx.arc(0,0,faceR,0,Math.PI*2);
+      ctx.fillStyle = s.color;
+      ctx.fill();
+
+      // soft directional sheen — a small, low-opacity highlight rather than a full sphere gradient
+      ctx.save();
+      ctx.clip();
+      ctx.beginPath();
+      ctx.ellipse(-s.r*0.28, -s.r*0.32, s.r*0.55, s.r*0.32, -0.5, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,0.22)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(s.r*0.22, s.r*0.35, s.r*0.6, s.r*0.35, -0.5, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(0,0,0,0.12)';
+      ctx.fill();
+      ctx.restore();
+
+      // hairline rim stroke for edge definition
+      ctx.beginPath();
+      ctx.arc(0,0,s.r*0.985,0,Math.PI*2);
+      ctx.lineWidth = Math.max(1, s.r*0.05);
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.stroke();
+
+      // active-turn glow ring
+      const activeIndex = turnOrder[currentTurn];
+      if(s.playerIndex === activeIndex && (phase==='waiting'||phase==='dragging') && s.alive){
+        ctx.beginPath();
+        ctx.arc(0,0,s.r*1.22,0,Math.PI*2);
+        ctx.strokeStyle = 'rgba(217,164,65,0.85)';
+        ctx.lineWidth = s.r*0.12;
+        ctx.stroke();
+      }
+      ctx.restore();
+    });
+  }
+
+  function drawDrag(){
+    if(phase !== 'dragging' || !drag) return;
+    const maxPull = boardRadius * MAX_PULL_RATIO;
+    const dx = drag.curX-drag.anchorX, dy = drag.curY-drag.anchorY;
+    const dist = Math.hypot(dx,dy);
+    const power = Math.min(dist,maxPull)/maxPull;
+
+    ctx.save();
+    ctx.setLineDash([6,7]);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(242,233,220,0.75)';
+    ctx.beginPath();
+    ctx.moveTo(drag.anchorX, drag.anchorY);
+    ctx.lineTo(drag.curX, drag.curY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // launch direction arrow (opposite of pull)
+    const nx = -dx/(dist||1), ny = -dy/(dist||1);
+    const arrowLen = drag.stone.r*1.6 + power*boardRadius*0.3;
+    const ax = drag.anchorX + nx*arrowLen, ay = drag.anchorY + ny*arrowLen;
+    ctx.beginPath();
+    ctx.moveTo(drag.anchorX, drag.anchorY);
+    ctx.lineTo(ax, ay);
+    ctx.strokeStyle = `rgba(217,164,65,${0.4+power*0.6})`;
+    ctx.lineWidth = 3 + power*4;
+    ctx.stroke();
+    // arrow head
+    const headAng = Math.atan2(ny,nx);
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - 10*Math.cos(headAng-0.4), ay - 10*Math.sin(headAng-0.4));
+    ctx.lineTo(ax - 10*Math.cos(headAng+0.4), ay - 10*Math.sin(headAng+0.4));
+    ctx.closePath();
+    ctx.fillStyle = `rgba(217,164,65,${0.5+power*0.5})`;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function lighten(hex, amt){ return shade(hex, amt); }
+  function darken(hex, amt){ return shade(hex, -amt); }
+  function shade(hex, amt){
+    const c = hex.replace('#','');
+    const num = parseInt(c,16);
+    let r = (num>>16) + amt, g = ((num>>8)&0xff) + amt, b = (num&0xff) + amt;
+    r = Math.max(0,Math.min(255,r)); g = Math.max(0,Math.min(255,g)); b = Math.max(0,Math.min(255,b));
+    return '#' + (r<<16 | g<<8 | b).toString(16).padStart(6,'0');
+  }
+
+  // ---------------------------------------------------------------
+  // Main loop
+  // ---------------------------------------------------------------
+  let rafRunning = false;
+  function loop(t){
+    const dt = Math.min(0.032, (t-lastTime)/1000 || 0);
+    lastTime = t;
+
+    if(phase === 'settling'){
+      stepPhysics(dt);
+    }
+
+    if(canvas){
+      drawBoard();
+      drawStones();
+      drawDrag();
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  // ---------------------------------------------------------------
+  // Resize
+  // ---------------------------------------------------------------
+  let resizeTimer;
+  window.addEventListener('resize', ()=>{
+    if(phase === 'setup') return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(()=>{ if(canvas) sizeCanvas(); }, 120);
+  });
+
+  // bind canvas events once DOM canvas exists (it exists from the start, hidden)
+  document.addEventListener('DOMContentLoaded', ()=>{
+    canvas = document.getElementById('board');
+    ctx = canvas.getContext('2d');
+    bindCanvasEvents();
+  });
+  // in case DOMContentLoaded already fired
+  if(document.readyState !== 'loading'){
+    canvas = document.getElementById('board');
+    ctx = canvas.getContext('2d');
+    bindCanvasEvents();
+  }
+
+})();
+</script>
+</body>
+</html>
