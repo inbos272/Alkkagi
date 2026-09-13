@@ -7,9 +7,10 @@
   "theme_color": "#0d1712",
   "icons": [
     {
-      "src": "https://via.placeholder.com/512.png",
+      "src": "https://raw.githubusercontent.com/pwa-builder/PWABuilder/main/assets/icons/icon_512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
