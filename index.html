@@ -2,8 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<link rel="manifest" href="manifest.json">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>알까기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
@@ -28,16 +27,21 @@
     font-family:'Noto Sans KR', sans-serif;
     color:var(--cream);
     overflow:hidden;
+    overscroll-behavior:none;
+    touch-action:none;
     user-select:none;
   }
   .display{font-family:'Jua', sans-serif;}
 
-  #app{position:relative; width:100vw; height:100vh; display:flex; align-items:center; justify-content:center;}
+  #app{position:relative; width:100vw; height:100dvh; display:flex; align-items:center; justify-content:center;}
 
   /* ---------- Setup screen ---------- */
   #setupScreen{
     display:flex; flex-direction:column; align-items:center; gap:28px;
-    padding:32px; text-align:center;
+    padding:32px; padding-top:max(32px, env(safe-area-inset-top));
+    padding-bottom:max(32px, env(safe-area-inset-bottom));
+    text-align:center;
+    max-height:100dvh; overflow-y:auto; touch-action:pan-y;
     animation: fadeIn .5s ease;
   }
   #setupScreen h1{
@@ -113,54 +117,109 @@
     width:100%; height:100%;
     align-items:center; justify-content:center;
     flex-direction:column;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   }
-  #hud{
-    position:absolute; top:18px; left:0; right:0;
+  #boardWrap{ position:relative; display:flex; align-items:center; justify-content:center; width:100%; flex:1 1 auto; min-height:0; }
+
+  #topBar{
+    position:absolute; top:max(12px, env(safe-area-inset-top)); left:max(12px, env(safe-area-inset-left)); right:max(12px, env(safe-area-inset-right));
+    display:flex; align-items:flex-start; justify-content:space-between;
+    z-index:6; gap:8px;
+  }
+  #accountChip, #coinChip{
+    pointer-events:auto;
+    display:flex; align-items:center; gap:7px;
+    padding:7px 12px;
+    background:rgba(13,23,18,.68);
+    border:1.5px solid rgba(138,90,53,.7);
+    border-radius:999px;
+    font-size:13px;
+    backdrop-filter: blur(3px);
+  }
+  #accountChip .avatarDot{
+    width:22px; height:22px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(180deg, var(--gold), #b9812c);
     display:flex; align-items:center; justify-content:center;
-    gap:12px;
-    z-index:5;
-    pointer-events:none;
+    font-size:11px; font-weight:700; color:#2b1a0d;
+  }
+  #nicknameText{ max-width:26vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--cream); }
+  #nicknameInput{
+    max-width:26vw; background:transparent; border:none; border-bottom:1.5px solid var(--gold);
+    color:var(--cream); font-size:13px; font-family:inherit; outline:none; padding:0 2px;
+  }
+  #editNickBtn{
+    background:none; border:none; color:var(--cream-dim); font-size:13px; cursor:pointer; padding:2px;
+    display:flex; align-items:center;
+  }
+  #coinChip{ font-weight:700; color:var(--gold); }
+  #coinChip .coinIcon{
+    width:20px; height:20px; border-radius:50%; flex-shrink:0;
+    background:radial-gradient(circle at 35% 30%, #ffe9a8, #d9a441 55%, #9c6f22 100%);
+    box-shadow: inset 0 -2px 2px rgba(0,0,0,.3);
+  }
+  .topRightGroup{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+  .topRightIcons{ display:flex; gap:8px; pointer-events:auto; }
+
+  #turnBar{
+    position:absolute; top:max(64px, calc(env(safe-area-inset-top) + 56px)); left:0; right:0;
+    display:flex; justify-content:center; z-index:5; pointer-events:none;
   }
   #turnPlaque{
     pointer-events:auto;
-    display:flex; align-items:center; gap:10px;
-    padding:10px 22px;
+    display:flex; align-items:center; gap:9px;
+    padding:8px 20px;
     background:linear-gradient(180deg, var(--wood-face), var(--wood-rim-dark));
     border:2px solid var(--wood-rim);
     border-radius:999px;
     box-shadow:0 4px 10px rgba(0,0,0,.4);
-    font-size:16px;
+    font-size:14px;
     transition: box-shadow .2s ease;
+    max-width:min(84vw, 420px);
   }
-  #turnPlaque .dot{ width:16px; height:16px; border-radius:50%; box-shadow: inset 0 -2px 3px rgba(0,0,0,.35); flex-shrink:0; }
+  #turnPlaque .dot{ width:14px; height:14px; border-radius:50%; box-shadow: inset 0 -2px 3px rgba(0,0,0,.35); flex-shrink:0; }
   #turnPlaque.pulse{ box-shadow:0 0 0 4px rgba(217,164,65,.35), 0 4px 10px rgba(0,0,0,.4); }
+  #turnText{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-  #iconBtns{ position:absolute; top:18px; right:18px; display:flex; gap:10px; z-index:5; }
   .iconBtn{
-    width:42px; height:42px; border-radius:50%;
+    width:40px; height:40px; border-radius:50%;
     border:2px solid var(--wood-rim);
     background: linear-gradient(180deg, var(--wood-face), var(--wood-rim-dark));
-    color:var(--cream); font-size:18px;
+    color:var(--cream); font-size:17px;
     display:flex; align-items:center; justify-content:center;
     cursor:pointer;
     box-shadow: 0 3px 6px rgba(0,0,0,.4);
+    flex-shrink:0;
   }
   .iconBtn:active{ transform: scale(.92); }
 
-  #legend{
-    position:absolute; bottom:16px; left:0; right:0;
-    display:flex; justify-content:center; gap:14px; flex-wrap:wrap;
-    z-index:5; padding:0 12px;
+  #playerStrip{
+    position:absolute; bottom:max(10px, env(safe-area-inset-bottom)); left:0; right:0;
+    display:flex; justify-content:center; z-index:5; padding:0 10px;
   }
-  .legendChip{
+  #playerStripInner{
+    display:flex; gap:8px; overflow-x:auto; max-width:100%;
+    padding:6px 4px; scrollbar-width:none;
+  }
+  #playerStripInner::-webkit-scrollbar{ display:none; }
+  .playerChip{
+    flex-shrink:0;
     display:flex; align-items:center; gap:6px;
-    font-size:12px; color:var(--cream-dim);
-    padding:5px 10px; border-radius:999px;
-    background:rgba(0,0,0,.25);
-    transition: opacity .3s ease;
+    font-size:11.5px; color:var(--cream-dim);
+    padding:6px 10px 6px 6px; border-radius:999px;
+    background:rgba(0,0,0,.32);
+    border:1.5px solid transparent;
+    transition: opacity .3s ease, border-color .2s ease;
+    white-space:nowrap;
   }
-  .legendChip .dot{ width:11px; height:11px; border-radius:50%; }
-  .legendChip.out{ opacity:.35; text-decoration:line-through; }
+  .playerChip.active{ border-color:var(--gold); color:var(--cream); }
+  .playerChip .avatar{
+    width:20px; height:20px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px; font-weight:700; color:rgba(0,0,0,.55);
+  }
+  .playerChip .stoneBadge{ font-weight:700; color:var(--cream); }
+  .playerChip.out{ opacity:.35; }
+  .playerChip.out .stoneBadge{ text-decoration:line-through; }
 
   canvas#board{ touch-action:none; display:block; }
 
@@ -209,11 +268,11 @@
       <div class="stepper">
         <button class="stepBtn" id="decStoneBtn">−</button>
         <div>
-          <div id="stoneCountNum" class="display">8</div>
+          <div id="stoneCountNum" class="display">2</div>
         </div>
         <button class="stepBtn" id="incStoneBtn">+</button>
       </div>
-      <div id="playerCountLabel">알 개수 (총, 순서대로 나눠 가져요)</div>
+      <div id="playerCountLabel">알 개수 (1인당)</div>
     </div>
 
     <div id="playerConfigList"></div>
@@ -223,15 +282,31 @@
   </div>
 
   <div id="gameScreen">
-    <div id="hud">
+    <div id="topBar">
+      <div id="accountChip">
+        <span class="avatarDot" id="avatarInitial">손</span>
+        <span id="nicknameText">손님</span>
+        <input id="nicknameInput" class="hidden" maxlength="10" />
+        <button id="editNickBtn" title="닉네임 수정">✎</button>
+      </div>
+      <div class="topRightGroup">
+        <div id="coinChip"><span class="coinIcon"></span><span id="coinAmount">0</span></div>
+        <div class="topRightIcons">
+          <button class="iconBtn" id="muteBtn" title="음소거">🔊</button>
+          <button class="iconBtn" id="restartBtn" title="다시 시작">⟳</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="turnBar">
       <div id="turnPlaque"><span class="dot" id="turnDot"></span><span id="turnText">플레이어 1 차례</span></div>
     </div>
-    <div id="iconBtns">
-      <button class="iconBtn" id="muteBtn" title="음소거">🔊</button>
-      <button class="iconBtn" id="restartBtn" title="다시 시작">⟳</button>
+
+    <div id="boardWrap">
+      <canvas id="board"></canvas>
     </div>
-    <canvas id="board"></canvas>
-    <div id="legend"></div>
+
+    <div id="playerStrip"><div id="playerStripInner"></div></div>
 
     <div id="winOverlay">
       <div class="winDot" id="winDot"></div>
@@ -271,7 +346,7 @@
   // State
   // ---------------------------------------------------------------
   let playerCount = 4;
-  let stoneCount = 8;
+  let stonesPerPlayer = 2;
   let playerAI = [false,true,true,true,true,true,true,true]; // index 0 human by default, rest AI
   let players = [];     // {index, color, isAI}
   let stones = [];      // {x,y,vx,vy,r,color,alive,fallAnim,playerIndex}
@@ -289,6 +364,63 @@
   let lastTime = 0;
   let woodPattern = null;
   let gameId = 0; // bumped every restart so stale AI timers can no-op
+  let account = { deviceId:'', nickname:'손님', coins:0 };
+
+  // ---------------------------------------------------------------
+  // Storage (prefers the in-chat window.storage sandbox API; falls
+  // back to localStorage when running as a real packaged app where
+  // window.storage won't exist)
+  // ---------------------------------------------------------------
+  const store = {
+    async get(key){
+      if(window.storage){
+        try{ const r = await window.storage.get(key, false); return r ? r.value : null; }catch(e){ return null; }
+      }
+      try{ return localStorage.getItem(key); }catch(e){ return null; }
+    },
+    async set(key, value){
+      if(window.storage){
+        try{ await window.storage.set(key, value, false); return; }catch(e){ /* fall through */ }
+      }
+      try{ localStorage.setItem(key, value); }catch(e){}
+    }
+  };
+
+  const NICK_ADJ = ['용감한','날쌘','조용한','유쾌한','냉정한','화려한','은밀한','성실한','짜릿한','든든한'];
+  const NICK_NOUN = ['까치','여우','호랑이','고양이','매','늑대','거북이','독수리','너구리','수달'];
+  function randomNickname(){
+    const a = NICK_ADJ[Math.floor(Math.random()*NICK_ADJ.length)];
+    const n = NICK_NOUN[Math.floor(Math.random()*NICK_NOUN.length)];
+    const num = Math.floor(Math.random()*900)+100;
+    return a+n+num;
+  }
+  function randomDeviceId(){
+    if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  }
+
+  async function loadAccount(){
+    const raw = await store.get('alkkagi_account');
+    if(raw){
+      try{ account = Object.assign(account, JSON.parse(raw)); }catch(e){}
+    } else {
+      account = { deviceId: randomDeviceId(), nickname: randomNickname(), coins: 100 };
+      await store.set('alkkagi_account', JSON.stringify(account));
+    }
+    renderAccountUI();
+  }
+  async function saveAccount(){
+    await store.set('alkkagi_account', JSON.stringify(account));
+  }
+
+  function renderAccountUI(){
+    const nickEl = document.getElementById('nicknameText');
+    const avatarEl = document.getElementById('avatarInitial');
+    const coinEl = document.getElementById('coinAmount');
+    if(nickEl) nickEl.textContent = account.nickname;
+    if(avatarEl) avatarEl.textContent = account.nickname.slice(0,1);
+    if(coinEl) coinEl.textContent = account.coins;
+  }
 
   // ---------------------------------------------------------------
   // Setup screen wiring
@@ -297,12 +429,14 @@
   const stoneCountNum = document.getElementById('stoneCountNum');
 
   const STONE_MAX_TOTAL = 24;
+  const STONE_MAX_PER_PLAYER = 6;
 
-  function clampStoneCount(){
-    const min = playerCount;
-    const max = Math.min(STONE_MAX_TOTAL, playerCount*4);
-    stoneCount = Math.max(min, Math.min(max, stoneCount));
-    stoneCountNum.textContent = stoneCount;
+  function maxStonesPerPlayer(){
+    return Math.max(1, Math.min(STONE_MAX_PER_PLAYER, Math.floor(STONE_MAX_TOTAL/playerCount)));
+  }
+  function clampStonesPerPlayer(){
+    stonesPerPlayer = Math.max(1, Math.min(maxStonesPerPlayer(), stonesPerPlayer));
+    stoneCountNum.textContent = stonesPerPlayer;
   }
 
   function renderPlayerConfig(){
@@ -336,27 +470,28 @@
     }
   }
   renderPlayerConfig();
+  loadAccount();
 
   document.getElementById('decBtn').addEventListener('click', ()=>{
     playerCount = Math.max(2, playerCount-1);
     playerCountNum.textContent = playerCount;
-    clampStoneCount();
+    clampStonesPerPlayer();
     renderPlayerConfig();
   });
   document.getElementById('incBtn').addEventListener('click', ()=>{
     playerCount = Math.min(8, playerCount+1);
     playerCountNum.textContent = playerCount;
     if(playerAI[playerCount-1] === undefined) playerAI[playerCount-1] = true;
-    clampStoneCount();
+    clampStonesPerPlayer();
     renderPlayerConfig();
   });
   document.getElementById('decStoneBtn').addEventListener('click', ()=>{
-    stoneCount = Math.max(playerCount, stoneCount-1);
-    stoneCountNum.textContent = stoneCount;
+    stonesPerPlayer = Math.max(1, stonesPerPlayer-1);
+    stoneCountNum.textContent = stonesPerPlayer;
   });
   document.getElementById('incStoneBtn').addEventListener('click', ()=>{
-    stoneCount = Math.min(Math.min(STONE_MAX_TOTAL, playerCount*4), stoneCount+1);
-    stoneCountNum.textContent = stoneCount;
+    stonesPerPlayer = Math.min(maxStonesPerPlayer(), stonesPerPlayer+1);
+    stoneCountNum.textContent = stonesPerPlayer;
   });
 
   document.getElementById('startBtn').addEventListener('click', async ()=>{
@@ -375,6 +510,32 @@
     muted = !muted;
     document.getElementById('muteBtn').textContent = muted ? '🔇' : '🔊';
     if(bgLoop){ Tone.Destination.mute = muted; }
+  });
+
+  // ---------------------------------------------------------------
+  // Nickname editing
+  // ---------------------------------------------------------------
+  const nicknameText = document.getElementById('nicknameText');
+  const nicknameInput = document.getElementById('nicknameInput');
+  document.getElementById('editNickBtn').addEventListener('click', ()=>{
+    nicknameInput.value = account.nickname;
+    nicknameText.classList.add('hidden');
+    nicknameInput.classList.remove('hidden');
+    nicknameInput.focus();
+    nicknameInput.select();
+  });
+  function commitNickname(){
+    const v = nicknameInput.value.trim();
+    if(v) account.nickname = v.slice(0,10);
+    nicknameText.classList.remove('hidden');
+    nicknameInput.classList.add('hidden');
+    renderAccountUI();
+    saveAccount();
+  }
+  nicknameInput.addEventListener('blur', commitNickname);
+  nicknameInput.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ nicknameInput.blur(); }
+    e.stopPropagation();
   });
 
   // ---------------------------------------------------------------
@@ -496,8 +657,19 @@
   }
 
   function sizeCanvas(){
-    const vw = window.innerWidth, vh = window.innerHeight;
-    const size = Math.floor(Math.min(vw, vh) * 0.84);
+    const wrap = document.getElementById('boardWrap');
+    const topBarEl = document.getElementById('topBar');
+    const turnBarEl = document.getElementById('turnBar');
+    const stripEl = document.getElementById('playerStrip');
+
+    const wrapRect = wrap.getBoundingClientRect();
+    const topReserve = (topBarEl.offsetHeight||0) + (turnBarEl.offsetHeight||0) + 22;
+    const bottomReserve = (stripEl.offsetHeight||0) + 16;
+
+    const availW = wrapRect.width * 0.96;
+    const availH = Math.max(160, wrapRect.height - topReserve - bottomReserve);
+    const size = Math.max(180, Math.floor(Math.min(availW, availH)));
+
     canvas.style.width = size + 'px';
     canvas.style.height = size + 'px';
     canvas.width = size * dpr;
@@ -523,11 +695,8 @@
     const r = boardRadius * STONE_RADIUS_RATIO;
     const safeR = boardRadius - r - boardRadius*0.04;
 
-    // distribute the total stone count round-robin across players
-    const counts = new Array(playerCount).fill(0);
-    for(let k=0;k<stoneCount;k++){ counts[k%playerCount]++; }
     const assignments = [];
-    for(let p=0;p<playerCount;p++){ for(let c=0;c<counts[p];c++) assignments.push(p); }
+    for(let p=0;p<playerCount;p++){ for(let c=0;c<stonesPerPlayer;c++) assignments.push(p); }
 
     const minGap = r * (assignments.length > 16 ? 2.15 : 2.5);
     assignments.forEach(playerIndex=>{
@@ -555,13 +724,13 @@
   }
 
   function buildLegend(){
-    const legend = document.getElementById('legend');
-    legend.innerHTML = '';
+    const strip = document.getElementById('playerStripInner');
+    strip.innerHTML = '';
     players.forEach(p=>{
       const chip = document.createElement('div');
-      chip.className = 'legendChip';
+      chip.className = 'playerChip';
       chip.id = 'legend-'+p.index;
-      legend.appendChild(chip);
+      strip.appendChild(chip);
     });
     updateLegend();
   }
@@ -571,12 +740,14 @@
   }
 
   function updateLegend(){
+    const activeIndex = turnOrder[currentTurn];
     players.forEach(p=>{
       const chip = document.getElementById('legend-'+p.index);
       if(!chip) return;
       const count = stoneCountFor(p.index);
-      chip.innerHTML = '<span class="dot" style="background:'+p.color+'"></span><span>'+p.name+(p.isAI?' · AI':'')+' · 알 '+count+'개</span>';
+      chip.innerHTML = '<span class="avatar" style="background:'+p.color+'">'+(p.isAI?'AI':(p.index+1))+'</span><span class="stoneBadge">'+count+'</span>';
       chip.classList.toggle('out', !p.alive);
+      chip.classList.toggle('active', p.index === activeIndex && p.alive);
     });
   }
 
@@ -584,6 +755,7 @@
     const p = players[turnOrder[currentTurn]];
     document.getElementById('turnDot').style.background = p.color;
     document.getElementById('turnText').textContent = p.name + (p.isAI ? ' (AI) 차례' : ' 차례');
+    updateLegend();
   }
 
   function aliveCount(){ return players.filter(p=>p.alive).length; }
@@ -629,11 +801,12 @@
     if(players[activePlayerIndex].isAI) return; // AI plays itself
 
     const pos = getCanvasPos(e);
+    const grabMult = e.pointerType === 'touch' ? 3.0 : 2.2;
     let best = null, bestD = Infinity;
     stones.forEach(s=>{
       if(s.playerIndex !== activePlayerIndex || !s.alive) return;
       const d = Math.hypot(pos.x-s.x, pos.y-s.y);
-      if(d <= s.r*2.2 && d < bestD){ bestD = d; best = s; }
+      if(d <= s.r*grabMult && d < bestD){ bestD = d; best = s; }
     });
     if(best){
       drag = { anchorX: best.x, anchorY: best.y, curX: pos.x, curY: pos.y, stone: best };
@@ -1045,11 +1218,16 @@
   // Resize
   // ---------------------------------------------------------------
   let resizeTimer;
-  window.addEventListener('resize', ()=>{
+  function scheduleResize(){
     if(phase === 'setup') return;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(()=>{ if(canvas) sizeCanvas(); }, 120);
-  });
+  }
+  window.addEventListener('resize', scheduleResize);
+  window.addEventListener('orientationchange', scheduleResize);
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', scheduleResize);
+  }
 
   // bind canvas events once DOM canvas exists (it exists from the start, hidden)
   document.addEventListener('DOMContentLoaded', ()=>{
