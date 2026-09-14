@@ -37,7 +37,7 @@
 
   /* ---------- Setup screen ---------- */
   #setupScreen{
-    display:flex; flex-direction:column; align-items:center; gap:28px;
+    display:none; flex-direction:column; align-items:center; gap:28px;
     padding:32px; padding-top:max(32px, env(safe-area-inset-top));
     padding-bottom:max(32px, env(safe-area-inset-bottom));
     text-align:center;
@@ -70,7 +70,7 @@
   #playerCountNum{
     font-family:'Jua', sans-serif; font-size:56px; width:90px; text-align:center; color:var(--cream);
   }
-  #playerCountLabel{ font-size:13px; color:var(--cream-dim); margin-top:-14px; }
+  .playerCountLabel{ font-size:13px; color:var(--cream-dim); margin-top:-14px; }
   .colorPreviewRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:340px; }
   .colorDot{ width:22px; height:22px; border-radius:50%; box-shadow: inset 0 -3px 4px rgba(0,0,0,.35), 0 2px 3px rgba(0,0,0,.4); }
 
@@ -232,6 +232,9 @@
   #winOverlay .winDot{ width:64px; height:64px; border-radius:50%; box-shadow:0 0 30px 6px currentColor, inset 0 -6px 10px rgba(0,0,0,.3); }
   #winOverlay h2{ font-family:'Jua',sans-serif; font-size:clamp(32px,7vw,52px); margin:0; color:var(--gold); }
   #winOverlay p{ margin:0; color:var(--cream-dim); font-size:14px; }
+  #coinResultText{ font-weight:700; font-size:16px; }
+  #coinResultText.gain{ color:var(--gold); }
+  #coinResultText.loss{ color:var(--danger); }
   #playAgainBtn{
     margin-top:8px; padding:14px 38px;
     font-family:'Jua', sans-serif; font-size:18px; color:#2b1a0d;
@@ -244,12 +247,153 @@
   @keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
 
   .hidden{ display:none !important; }
+
+  /* ---------- Menu screens (main menu / battle menu / AI match setup) ---------- */
+  #mainMenuScreen{
+    display:flex; flex-direction:column; align-items:center; gap:26px;
+    padding:32px; padding-top:max(32px, env(safe-area-inset-top));
+    padding-bottom:max(32px, env(safe-area-inset-bottom));
+    text-align:center; max-height:100dvh; overflow-y:auto; touch-action:pan-y;
+    animation: fadeIn .4s ease;
+  }
+  #battleMenuScreen, #aiMatchSetup{
+    display:none; flex-direction:column; align-items:center; gap:26px;
+    padding:32px; padding-top:max(32px, env(safe-area-inset-top));
+    padding-bottom:max(32px, env(safe-area-inset-bottom));
+    text-align:center; max-height:100dvh; overflow-y:auto; touch-action:pan-y;
+    animation: fadeIn .4s ease;
+  }
+  #mainMenuScreen h1, #battleMenuScreen h1, #aiMatchSetup h1{
+    font-size:clamp(40px,9vw,72px); margin:0; color:var(--gold);
+    letter-spacing:2px; text-shadow:0 3px 0 rgba(0,0,0,.35);
+  }
+  .menuButtonCol{ display:flex; flex-direction:column; gap:14px; width:100%; max-width:340px; }
+  .menuBtn{
+    display:flex; flex-direction:column; align-items:flex-start; gap:4px;
+    padding:18px 22px; border-radius:16px; text-align:left;
+    background: linear-gradient(180deg, var(--wood-face), var(--wood-rim-dark));
+    border:2px solid var(--wood-rim);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.08), 0 5px 10px rgba(0,0,0,.4);
+    cursor:pointer; color:var(--cream);
+    transition: transform .08s ease;
+  }
+  .menuBtn:active{ transform: scale(.97); }
+  .menuBtnTitle{ font-family:'Jua', sans-serif; font-size:22px; color:var(--gold); }
+  .menuBtnDesc{ font-size:12.5px; color:var(--cream-dim); line-height:1.5; }
+  .menuBtn.disabledBtn{ opacity:.5; cursor:not-allowed; }
+  .menuBtn.disabledBtn:active{ transform:none; }
+  .soonTag{
+    display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px;
+    background:rgba(0,0,0,.3); font-size:10px; color:var(--cream-dim); vertical-align:middle;
+  }
+
+  .backBtn{
+    position:fixed; top:max(16px, env(safe-area-inset-top)); left:max(16px, env(safe-area-inset-left));
+    z-index:20; padding:9px 16px; border-radius:999px;
+    background:rgba(0,0,0,.32); border:1.5px solid var(--wood-rim); color:var(--cream-dim);
+    font-size:13px; cursor:pointer;
+  }
+  .backBtn:active{ transform:scale(.95); }
+
+  /* ---------- Difficulty segmented control ---------- */
+  #aiDifficultyBlock{ width:100%; max-width:300px; }
+  .segmented{
+    display:flex; border-radius:999px; overflow:hidden;
+    border:1.5px solid var(--wood-rim);
+  }
+  .segBtn{
+    flex:1; padding:9px 0; font-size:13px; font-family:'Noto Sans KR', sans-serif;
+    background:rgba(0,0,0,.22); color:var(--cream-dim); border:none; cursor:pointer;
+    border-right:1px solid rgba(138,90,53,.5);
+  }
+  .segBtn:last-child{ border-right:none; }
+  .segBtn.active{
+    background:linear-gradient(180deg, var(--gold), #b9812c);
+    color:#2b1a0d; font-weight:700;
+  }
+
+  .iconBtn.danger{ border-color: var(--danger); }
+
+  /* ---------- Exit confirm dialog ---------- */
+  #exitConfirmOverlay{
+    display:flex; position:absolute; inset:0; z-index:15;
+    align-items:center; justify-content:center;
+    background:rgba(10,14,11,.72);
+    animation: fadeIn .2s ease;
+  }
+  #exitConfirmOverlay.hidden{ display:none !important; }
+  .confirmBox{
+    background:linear-gradient(180deg, var(--wood-face), var(--wood-rim-dark));
+    border:2px solid var(--wood-rim);
+    border-radius:16px; padding:24px 22px;
+    max-width:320px; width:88%;
+    box-shadow:0 10px 24px rgba(0,0,0,.5);
+    text-align:center;
+  }
+  .confirmBox p{ margin:0 0 18px; color:var(--cream); font-size:14.5px; line-height:1.6; }
+  .confirmSub{ color:var(--cream-dim); font-size:12.5px; }
+  .confirmBtnRow{ display:flex; gap:10px; }
+  .confirmBtn{
+    flex:1; padding:11px 0; border-radius:10px; font-size:14px; font-weight:700;
+    cursor:pointer; border:1.5px solid transparent;
+  }
+  .confirmBtn.ghost{ background:rgba(0,0,0,.25); color:var(--cream-dim); border-color:var(--wood-rim); }
+  .confirmBtn.danger{ background:linear-gradient(180deg, var(--danger), #8f3a2e); color:#fff2ee; }
+  .confirmBtn:active{ transform:scale(.96); }
 </style>
 </head>
 <body>
 <div id="app">
 
+  <div id="mainMenuScreen">
+    <h1 class="display">알까기</h1>
+    <p class="sub">둥근 판 위에서 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요.<br>상대 알을 판 밖으로 쳐내고 마지막까지 남으세요.</p>
+    <div class="menuButtonCol">
+      <button class="menuBtn" id="gotoPracticeBtn">
+        <span class="menuBtnTitle">연습</span>
+        <span class="menuBtnDesc">인원, 알 개수, AI 여부까지 자유롭게 설정해서 즐겨요</span>
+      </button>
+      <button class="menuBtn" id="gotoBattleBtn">
+        <span class="menuBtnTitle">대전</span>
+        <span class="menuBtnDesc">AI 또는 다른 사람과 진짜 대결을 펼쳐요</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="battleMenuScreen">
+    <button class="backBtn" id="battleBackBtn">‹ 뒤로</button>
+    <h1 class="display">대전</h1>
+    <div class="menuButtonCol">
+      <button class="menuBtn" id="gotoAiMatchBtn">
+        <span class="menuBtnTitle">AI 대전</span>
+        <span class="menuBtnDesc">2~4인 · 나 1명 + AI(어려움)와 대결해요</span>
+      </button>
+      <button class="menuBtn disabledBtn" id="gotoOnlineBtn" disabled>
+        <span class="menuBtnTitle">온라인 대전<span class="soonTag">준비 중</span></span>
+        <span class="menuBtnDesc">2~4인을 설정해 대기열을 만들어요 (곧 지원 예정)</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="aiMatchSetup">
+    <button class="backBtn" id="aiMatchBackBtn">‹ 뒤로</button>
+    <h1 class="display">AI 대전</h1>
+    <p class="sub">나 1명과 어려움 난이도 AI가 맞붙어요.</p>
+    <div>
+      <div class="stepper">
+        <button class="stepBtn" id="aiDecBtn">−</button>
+        <div>
+          <div id="aiPlayerCountNum" class="display">3</div>
+        </div>
+        <button class="stepBtn" id="aiIncBtn">+</button>
+      </div>
+      <div class="playerCountLabel">전체 인원 (2~4명, 나 1명 + AI)</div>
+    </div>
+    <button id="aiStartBtn">시작하기</button>
+  </div>
+
   <div id="setupScreen">
+    <button class="backBtn" id="practiceBackBtn">‹ 뒤로</button>
     <h1 class="display">알까기</h1>
     <p class="sub">둥근 판 위에서 내 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요.<br>다른 알을 판 밖으로 쳐내고 마지막까지 남으세요.<br>플레이어를 AI로 설정하면 컴퓨터가 직접 조준하고 당기는 모습을 볼 수 있어요.</p>
 
@@ -261,7 +405,7 @@
         </div>
         <button class="stepBtn" id="incBtn">+</button>
       </div>
-      <div id="playerCountLabel">플레이어 수 (2~8명)</div>
+      <div class="playerCountLabel">플레이어 수 (2~8명)</div>
     </div>
 
     <div>
@@ -272,11 +416,19 @@
         </div>
         <button class="stepBtn" id="incStoneBtn">+</button>
       </div>
-      <div id="playerCountLabel">알 개수 (1인당)</div>
+      <div class="playerCountLabel">알 개수 (1인당)</div>
     </div>
 
     <div id="playerConfigList"></div>
-    <div class="colorPreviewRow hidden" id="colorPreview"></div>
+
+    <div id="aiDifficultyBlock" class="hidden">
+      <div class="segmented" id="difficultySegmented">
+        <button class="segBtn" data-diff="easy">쉬움</button>
+        <button class="segBtn active" data-diff="normal">보통</button>
+        <button class="segBtn" data-diff="hard">어려움</button>
+      </div>
+      <div class="playerCountLabel">AI 난이도</div>
+    </div>
 
     <button id="startBtn">시작하기</button>
   </div>
@@ -294,6 +446,7 @@
         <div class="topRightIcons">
           <button class="iconBtn" id="muteBtn" title="음소거">🔊</button>
           <button class="iconBtn" id="restartBtn" title="다시 시작">⟳</button>
+          <button class="iconBtn danger" id="exitBtn" title="게임 나가기">✕</button>
         </div>
       </div>
     </div>
@@ -312,7 +465,18 @@
       <div class="winDot" id="winDot"></div>
       <h2 id="winText">플레이어 1 승리!</h2>
       <p>알까기가 끝났어요</p>
+      <p id="coinResultText" class="hidden"></p>
       <button id="playAgainBtn">다시 하기</button>
+    </div>
+
+    <div id="exitConfirmOverlay" class="hidden">
+      <div class="confirmBox">
+        <p>게임을 나가고 메인 메뉴로 돌아갈까요?<br><span class="confirmSub">진행 중인 대결은 사라져요.</span></p>
+        <div class="confirmBtnRow">
+          <button id="exitCancelBtn" class="confirmBtn ghost">취소</button>
+          <button id="exitConfirmBtn" class="confirmBtn danger">나가기</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -348,6 +512,15 @@
   let playerCount = 4;
   let stonesPerPlayer = 2;
   let playerAI = [false,true,true,true,true,true,true,true]; // index 0 human by default, rest AI
+  let aiDifficulty = 'normal'; // easy | normal | hard — used by practice mode
+  let aiMatchPlayerCount = 3;  // 2~4, used by the dedicated AI 대전 mode
+  let matchIsBattle = false;   // true for 대전 modes (coins are staked); false for 연습
+  let matchStakeOpponents = 0; // number of opponents this match — win reward scales with this
+  const AI_DIFFICULTY = {
+    easy:   { angleNoise: 0.55, powerJitter: 0.32, targetRandomChance: 0.5, bestShotChance: 0.05 },
+    normal: { angleNoise: 0.30, powerJitter: 0.18, targetRandomChance: 0.25, bestShotChance: 0.25 },
+    hard:   { angleNoise: 0.10, powerJitter: 0.07, targetRandomChance: 0.05, bestShotChance: 0.85 }
+  };
   let players = [];     // {index, color, isAI}
   let stones = [];      // {x,y,vx,vy,r,color,alive,fallAnim,playerIndex}
   let turnOrder = [];
@@ -423,6 +596,71 @@
   }
 
   // ---------------------------------------------------------------
+  // Screen navigation
+  // ---------------------------------------------------------------
+  const SCREENS = ['mainMenuScreen','battleMenuScreen','aiMatchSetup','setupScreen','gameScreen'];
+  function showScreen(id){
+    SCREENS.forEach(s=>{
+      document.getElementById(s).style.display = (s===id) ? 'flex' : 'none';
+    });
+  }
+
+  document.getElementById('gotoPracticeBtn').addEventListener('click', ()=>{ showScreen('setupScreen'); });
+  document.getElementById('gotoBattleBtn').addEventListener('click', ()=>{ showScreen('battleMenuScreen'); });
+  document.getElementById('battleBackBtn').addEventListener('click', ()=>{ showScreen('mainMenuScreen'); });
+  document.getElementById('practiceBackBtn').addEventListener('click', ()=>{ showScreen('mainMenuScreen'); });
+  document.getElementById('aiMatchBackBtn').addEventListener('click', ()=>{ showScreen('battleMenuScreen'); });
+  document.getElementById('gotoAiMatchBtn').addEventListener('click', ()=>{ showScreen('aiMatchSetup'); });
+  // 온라인 대전 is intentionally non-interactive for now (disabled attribute in HTML)
+
+  const aiPlayerCountNum = document.getElementById('aiPlayerCountNum');
+  document.getElementById('aiDecBtn').addEventListener('click', ()=>{
+    aiMatchPlayerCount = Math.max(2, aiMatchPlayerCount-1);
+    aiPlayerCountNum.textContent = aiMatchPlayerCount;
+  });
+  document.getElementById('aiIncBtn').addEventListener('click', ()=>{
+    aiMatchPlayerCount = Math.min(4, aiMatchPlayerCount+1);
+    aiPlayerCountNum.textContent = aiMatchPlayerCount;
+  });
+  document.getElementById('aiStartBtn').addEventListener('click', async ()=>{
+    playerCount = aiMatchPlayerCount;
+    playerAI = new Array(8).fill(true);
+    playerAI[0] = false; // player 1 is always the human
+    aiDifficulty = 'hard';
+    stonesPerPlayer = Math.min(stonesPerPlayer, maxStonesPerPlayer());
+    matchIsBattle = true;
+    matchStakeOpponents = playerCount - 1;
+    await initAudio();
+    startGame();
+  });
+
+  const exitConfirmOverlay = document.getElementById('exitConfirmOverlay');
+  document.getElementById('exitBtn').addEventListener('click', ()=>{
+    exitConfirmOverlay.classList.remove('hidden');
+  });
+  document.getElementById('exitCancelBtn').addEventListener('click', ()=>{
+    exitConfirmOverlay.classList.add('hidden');
+  });
+  document.getElementById('exitConfirmBtn').addEventListener('click', ()=>{
+    exitConfirmOverlay.classList.add('hidden');
+    gameId++; // invalidate any pending AI move timers
+    drag = null;
+    document.getElementById('winOverlay').style.display = 'none';
+    showScreen('mainMenuScreen');
+  });
+
+  function updateDifficultyVisibility(){
+    const anyAI = playerAI.slice(0, playerCount).some(v=>v);
+    document.getElementById('aiDifficultyBlock').classList.toggle('hidden', !anyAI);
+  }
+  document.querySelectorAll('#difficultySegmented .segBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      aiDifficulty = btn.dataset.diff;
+      document.querySelectorAll('#difficultySegmented .segBtn').forEach(b=>b.classList.toggle('active', b===btn));
+    });
+  });
+
+  // ---------------------------------------------------------------
   // Setup screen wiring
   // ---------------------------------------------------------------
   const playerCountNum = document.getElementById('playerCountNum');
@@ -461,6 +699,7 @@
         playerAI[i] = !playerAI[i];
         toggle.textContent = playerAI[i] ? 'AI' : '사람';
         toggle.classList.toggle('isAI', playerAI[i]);
+        updateDifficultyVisibility();
       });
 
       row.appendChild(dot);
@@ -468,9 +707,11 @@
       row.appendChild(toggle);
       wrap.appendChild(row);
     }
+    updateDifficultyVisibility();
   }
   renderPlayerConfig();
   loadAccount();
+  showScreen('mainMenuScreen');
 
   document.getElementById('decBtn').addEventListener('click', ()=>{
     playerCount = Math.max(2, playerCount-1);
@@ -627,8 +868,7 @@
   // Game setup
   // ---------------------------------------------------------------
   function startGame(){
-    document.getElementById('setupScreen').style.display = 'none';
-    document.getElementById('gameScreen').style.display = 'flex';
+    showScreen('gameScreen');
 
     canvas = document.getElementById('board');
     ctx = canvas.getContext('2d');
@@ -878,21 +1118,35 @@
     const enemies = stones.filter(s=>s.playerIndex!==playerIndex && s.alive);
     if(own.length===0 || enemies.length===0) return;
 
-    const stone = own[Math.floor(Math.random()*own.length)];
-    const sorted = enemies.slice().sort((a,b)=>{
-      const da = Math.hypot(a.x-stone.x, a.y-stone.y);
-      const db = Math.hypot(b.x-stone.x, b.y-stone.y);
-      return da-db;
-    });
-    const target = (Math.random() < 0.75 || sorted.length===1) ? sorted[0] : sorted[1];
+    const diff = AI_DIFFICULTY[aiDifficulty] || AI_DIFFICULTY.normal;
+    let stone, target;
+    if(Math.random() < diff.bestShotChance){
+      // pick the own-stone/enemy-stone pair with the clearest (closest) shot
+      let bestDist = Infinity;
+      own.forEach(o=>{
+        enemies.forEach(en=>{
+          const d = Math.hypot(en.x-o.x, en.y-o.y);
+          if(d < bestDist){ bestDist = d; stone = o; target = en; }
+        });
+      });
+    } else {
+      stone = own[Math.floor(Math.random()*own.length)];
+      const sorted = enemies.slice().sort((a,b)=>{
+        const da = Math.hypot(a.x-stone.x, a.y-stone.y);
+        const db = Math.hypot(b.x-stone.x, b.y-stone.y);
+        return da-db;
+      });
+      const useRandomTarget = Math.random() < diff.targetRandomChance;
+      target = useRandomTarget ? sorted[Math.floor(Math.random()*sorted.length)] : sorted[0];
+    }
 
     const dist = Math.hypot(target.x-stone.x, target.y-stone.y);
     let angle = Math.atan2(target.y-stone.y, target.x-stone.x);
-    angle += (Math.random()-0.5) * 0.3; // aim imperfection
+    angle += (Math.random()-0.5) * diff.angleNoise; // aim imperfection, scaled by difficulty
 
     let power = 0.55 + dist/(boardRadius*2.2);
-    power += (Math.random()-0.5) * 0.18;
-    power = Math.max(0.35, Math.min(1, power));
+    power += (Math.random()-0.5) * diff.powerJitter;
+    power = Math.max(0.3, Math.min(1, power));
 
     const maxPull = boardRadius * MAX_PULL_RATIO;
     const anchorX = stone.x, anchorY = stone.y;
