@@ -97,7 +97,7 @@
     background:linear-gradient(180deg, var(--gold), #b9812c);
     border-color:#b9812c; color:#2b1a0d; font-weight:700;
   }
-  #startBtn{
+  #startBtn, #aiStartBtn{
     margin-top:6px;
     padding:16px 46px;
     font-family:'Jua', sans-serif; font-size:22px; letter-spacing:1px;
@@ -108,7 +108,7 @@
     box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 5px 0 #8a5f1e, 0 8px 14px rgba(0,0,0,.45);
     transition: transform .08s ease, box-shadow .08s ease;
   }
-  #startBtn:active{ transform: translateY(4px); box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 1px 0 #8a5f1e, 0 3px 8px rgba(0,0,0,.4); }
+  #startBtn:active, #aiStartBtn:active{ transform: translateY(4px); box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 1px 0 #8a5f1e, 0 3px 8px rgba(0,0,0,.4); }
 
   /* ---------- Game screen ---------- */
   #gameScreen{
@@ -248,7 +248,7 @@
 
   .hidden{ display:none !important; }
 
-  /* ---------- Menu screens (main menu / battle menu / AI match setup) ---------- */
+  /* ---------- Menu screens ---------- */
   #mainMenuScreen{
     display:flex; flex-direction:column; align-items:center; gap:26px;
     padding:32px; padding-top:max(32px, env(safe-area-inset-top));
@@ -486,9 +486,6 @@
 (function(){
   "use strict";
 
-  // ---------------------------------------------------------------
-  // Constants & palette
-  // ---------------------------------------------------------------
   const PALETTE = [
     {name:'빨강',  hex:'#E6394B'},
     {name:'파랑',  hex:'#4C7BD9'},
@@ -500,50 +497,41 @@
     {name:'하늘',  hex:'#06AED5'}
   ];
 
-  const FRICTION_K = 1.5;        // exponential velocity decay factor per second
-  const STOP_SPEED = 6;          // px/s below which a stone is considered stopped
-  const MAX_PULL_RATIO = 0.34;   // fraction of board radius = max pull distance
-  const MAX_LAUNCH_SPEED = 1.45; // multiplier applied to boardRadius to get px/s at full pull
-  const STONE_RADIUS_RATIO = 0.085; // fraction of board radius
+  const FRICTION_K = 1.5;
+  const STOP_SPEED = 6;
+  const MAX_PULL_RATIO = 0.34;
+  const MAX_LAUNCH_SPEED = 1.45;
+  const STONE_RADIUS_RATIO = 0.085;
 
-  // ---------------------------------------------------------------
-  // State
-  // ---------------------------------------------------------------
   let playerCount = 4;
   let stonesPerPlayer = 2;
-  let playerAI = [false,true,true,true,true,true,true,true]; // index 0 human by default, rest AI
-  let aiDifficulty = 'normal'; // easy | normal | hard — used by practice mode
-  let aiMatchPlayerCount = 3;  // 2~4, used by the dedicated AI 대전 mode
-  let matchIsBattle = false;   // true for 대전 modes (coins are staked); false for 연습
-  let matchStakeOpponents = 0; // number of opponents this match — win reward scales with this
+  let playerAI = [false,true,true,true,true,true,true,true];
+  let aiDifficulty = 'normal';
+  let aiMatchPlayerCount = 3;
+  let matchIsBattle = false;
+  let matchStakeOpponents = 0;
   const AI_DIFFICULTY = {
     easy:   { angleNoise: 0.55, powerJitter: 0.32, targetRandomChance: 0.5, bestShotChance: 0.05 },
     normal: { angleNoise: 0.30, powerJitter: 0.18, targetRandomChance: 0.25, bestShotChance: 0.25 },
     hard:   { angleNoise: 0.10, powerJitter: 0.07, targetRandomChance: 0.05, bestShotChance: 0.85 }
   };
-  let players = [];     // {index, color, isAI}
-  let stones = [];      // {x,y,vx,vy,r,color,alive,fallAnim,playerIndex}
+  let players = [];
+  let stones = [];
   let turnOrder = [];
   let currentTurn = 0;
-  let phase = 'setup';  // setup | waiting | dragging | settling | gameover
+  let phase = 'setup';
   let boardRadius = 0;
   let boardCenter = {x:0,y:0};
   let dpr = Math.min(window.devicePixelRatio || 1, 2);
   let canvas, ctx;
-  let drag = null; // {anchorX, anchorY, curX, curY, stone}
+  let drag = null;
   let audioReady = false;
   let muted = false;
   let contactPairs = new Set();
   let lastTime = 0;
-  let woodPattern = null;
-  let gameId = 0; // bumped every restart so stale AI timers can no-op
+  let gameId = 0;
   let account = { deviceId:'', nickname:'손님', coins:0 };
 
-  // ---------------------------------------------------------------
-  // Storage (prefers the in-chat window.storage sandbox API; falls
-  // back to localStorage when running as a real packaged app where
-  // window.storage won't exist)
-  // ---------------------------------------------------------------
   const store = {
     async get(key){
       if(window.storage){
@@ -553,7 +541,7 @@
     },
     async set(key, value){
       if(window.storage){
-        try{ await window.storage.set(key, value, false); return; }catch(e){ /* fall through */ }
+        try{ await window.storage.set(key, value, false); return; }catch(e){}
       }
       try{ localStorage.setItem(key, value); }catch(e){}
     }
@@ -595,9 +583,6 @@
     if(coinEl) coinEl.textContent = account.coins;
   }
 
-  // ---------------------------------------------------------------
-  // Screen navigation
-  // ---------------------------------------------------------------
   const SCREENS = ['mainMenuScreen','battleMenuScreen','aiMatchSetup','setupScreen','gameScreen'];
   function showScreen(id){
     SCREENS.forEach(s=>{
@@ -605,13 +590,12 @@
     });
   }
 
-  document.getElementById('gotoPracticeBtn').addEventListener('click', ()=>{ showScreen('setupScreen'); });
+  document.getElementById('gotoPracticeBtn').addEventListener('click', ()=>{ matchIsBattle = false; showScreen('setupScreen'); });
   document.getElementById('gotoBattleBtn').addEventListener('click', ()=>{ showScreen('battleMenuScreen'); });
   document.getElementById('battleBackBtn').addEventListener('click', ()=>{ showScreen('mainMenuScreen'); });
   document.getElementById('practiceBackBtn').addEventListener('click', ()=>{ showScreen('mainMenuScreen'); });
   document.getElementById('aiMatchBackBtn').addEventListener('click', ()=>{ showScreen('battleMenuScreen'); });
   document.getElementById('gotoAiMatchBtn').addEventListener('click', ()=>{ showScreen('aiMatchSetup'); });
-  // 온라인 대전 is intentionally non-interactive for now (disabled attribute in HTML)
 
   const aiPlayerCountNum = document.getElementById('aiPlayerCountNum');
   document.getElementById('aiDecBtn').addEventListener('click', ()=>{
@@ -625,7 +609,7 @@
   document.getElementById('aiStartBtn').addEventListener('click', async ()=>{
     playerCount = aiMatchPlayerCount;
     playerAI = new Array(8).fill(true);
-    playerAI[0] = false; // player 1 is always the human
+    playerAI[0] = false;
     aiDifficulty = 'hard';
     stonesPerPlayer = Math.min(stonesPerPlayer, maxStonesPerPlayer());
     matchIsBattle = true;
@@ -643,7 +627,7 @@
   });
   document.getElementById('exitConfirmBtn').addEventListener('click', ()=>{
     exitConfirmOverlay.classList.add('hidden');
-    gameId++; // invalidate any pending AI move timers
+    gameId++;
     drag = null;
     document.getElementById('winOverlay').style.display = 'none';
     showScreen('mainMenuScreen');
@@ -660,9 +644,6 @@
     });
   });
 
-  // ---------------------------------------------------------------
-  // Setup screen wiring
-  // ---------------------------------------------------------------
   const playerCountNum = document.getElementById('playerCountNum');
   const stoneCountNum = document.getElementById('stoneCountNum');
 
@@ -750,12 +731,9 @@
   document.getElementById('muteBtn').addEventListener('click', ()=>{
     muted = !muted;
     document.getElementById('muteBtn').textContent = muted ? '🔇' : '🔊';
-    if(bgLoop){ Tone.Destination.mute = muted; }
+    if(Tone.Destination) Tone.Destination.mute = muted;
   });
 
-  // ---------------------------------------------------------------
-  // Nickname editing
-  // ---------------------------------------------------------------
   const nicknameText = document.getElementById('nicknameText');
   const nicknameInput = document.getElementById('nicknameInput');
   document.getElementById('editNickBtn').addEventListener('click', ()=>{
@@ -779,58 +757,55 @@
     e.stopPropagation();
   });
 
-  // ---------------------------------------------------------------
-  // Audio (Tone.js)
-  // ---------------------------------------------------------------
-  let pluck, thud, whoosh, dropSynth, winSynth, bgSynth, bgLoop, bgPart;
+  let pluck, thud, whoosh, dropSynth, winSynth, bgSynth, bgLoop;
 
   async function initAudio(){
     if(audioReady) return;
-    await Tone.start();
+    try {
+      await Tone.start();
+      const masterVol = new Tone.Volume(-6).toDestination();
 
-    const masterVol = new Tone.Volume(-6).toDestination();
+      pluck = new Tone.MembraneSynth({
+        pitchDecay: 0.008, octaves: 3,
+        envelope:{attack:0.001, decay:0.15, sustain:0}
+      }).connect(masterVol);
 
-    pluck = new Tone.MembraneSynth({
-      pitchDecay: 0.008, octaves: 3,
-      envelope:{attack:0.001, decay:0.15, sustain:0}
-    }).connect(masterVol);
+      thud = new Tone.MembraneSynth({
+        pitchDecay: 0.02, octaves: 2,
+        envelope:{attack:0.001, decay:0.1, sustain:0}
+      }).connect(masterVol);
 
-    thud = new Tone.MembraneSynth({
-      pitchDecay: 0.02, octaves: 2,
-      envelope:{attack:0.001, decay:0.1, sustain:0}
-    }).connect(masterVol);
+      whoosh = new Tone.NoiseSynth({
+        noise:{type:'pink'},
+        envelope:{attack:0.01, decay:0.08, sustain:0}
+      }).connect(new Tone.Filter(1200,'lowpass').connect(masterVol));
 
-    whoosh = new Tone.NoiseSynth({
-      noise:{type:'pink'},
-      envelope:{attack:0.01, decay:0.08, sustain:0}
-    }).connect(new Tone.Filter(1200,'lowpass').connect(masterVol));
+      dropSynth = new Tone.Synth({
+        oscillator:{type:'sine'},
+        envelope:{attack:0.01, decay:0.4, sustain:0, release:0.1}
+      }).connect(masterVol);
 
-    dropSynth = new Tone.Synth({
-      oscillator:{type:'sine'},
-      envelope:{attack:0.01, decay:0.4, sustain:0, release:0.1}
-    }).connect(masterVol);
+      winSynth = new Tone.PolySynth(Tone.Synth, {
+        oscillator:{type:'triangle'},
+        envelope:{attack:0.01, decay:0.3, sustain:0.2, release:0.6}
+      }).connect(masterVol);
 
-    winSynth = new Tone.PolySynth(Tone.Synth, {
-      oscillator:{type:'triangle'},
-      envelope:{attack:0.01, decay:0.3, sustain:0.2, release:0.6}
-    }).connect(masterVol);
+      bgSynth = new Tone.PolySynth(Tone.Synth, {
+        oscillator:{type:'sine'},
+        envelope:{attack:0.02, decay:0.6, sustain:0.1, release:1.2}
+      }).connect(new Tone.Volume(-20).connect(new Tone.Reverb(2.5).connect(masterVol)));
 
-    // gentle ambient background loop (soft marimba-ish pentatonic wander)
-    bgSynth = new Tone.PolySynth(Tone.Synth, {
-      oscillator:{type:'sine'},
-      envelope:{attack:0.02, decay:0.6, sustain:0.1, release:1.2}
-    }).connect(new Tone.Volume(-20).connect(new Tone.Reverb(2.5).connect(masterVol)));
+      const scale = ['C4','D4','E4','G4','A4','C5','D5','E5'];
+      bgLoop = new Tone.Loop((time)=>{
+        if(Math.random() < 0.75){
+          const note = scale[Math.floor(Math.random()*scale.length)];
+          bgSynth.triggerAttackRelease(note, '4n', time, 0.5);
+        }
+      }, '2n').start(0);
 
-    const scale = ['C4','D4','E4','G4','A4','C5','D5','E5'];
-    bgLoop = new Tone.Loop((time)=>{
-      if(Math.random() < 0.75){
-        const note = scale[Math.floor(Math.random()*scale.length)];
-        bgSynth.triggerAttackRelease(note, '4n', time, 0.5);
-      }
-    }, '2n').start(0);
-
-    Tone.Transport.start();
-    audioReady = true;
+      Tone.Transport.start();
+      audioReady = true;
+    } catch(e) { console.warn("Audio init deferred", e); }
   }
 
   function sPull(dist01){
@@ -839,24 +814,24 @@
     whoosh.triggerAttackRelease('16n');
   }
   function sLaunch(power01){
-    if(!audioReady) return;
+    if(muted || !audioReady) return;
     pluck.volume.value = -8 + power01*10;
     pluck.triggerAttackRelease('C2', '8n');
   }
   function sCollide(impact01){
-    if(!audioReady) return;
+    if(muted || !audioReady) return;
     const note = 90 - impact01*30;
     thud.volume.value = -14 + impact01*16;
     thud.triggerAttackRelease(note, '16n');
   }
   function sFall(){
-    if(!audioReady) return;
+    if(muted || !audioReady) return;
     dropSynth.triggerAttackRelease('A3', 0.4);
     dropSynth.frequency.rampTo(80, 0.4);
     setTimeout(()=>{ dropSynth.frequency.value = 220; }, 420);
   }
   function sWin(){
-    if(!audioReady) return;
+    if(muted || !audioReady) return;
     const now = Tone.now();
     winSynth.triggerAttackRelease('C4', '8n', now);
     winSynth.triggerAttackRelease('E4', '8n', now+0.12);
@@ -864,9 +839,6 @@
     winSynth.triggerAttackRelease('C5', '4n', now+0.36);
   }
 
-  // ---------------------------------------------------------------
-  // Game setup
-  // ---------------------------------------------------------------
   function startGame(){
     showScreen('gameScreen');
 
@@ -878,7 +850,7 @@
 
     players = [];
     for(let i=0;i<playerCount;i++){
-      players.push({ index:i, color: PALETTE[i].hex, name: '플레이어 ' + (i+1), alive:true, isAI: !!playerAI[i] });
+      players.push({ index:i, color: PALETTE[i].hex, name: (i===0 && matchIsBattle)? account.nickname : '플레이어 ' + (i+1), alive:true, isAI: !!playerAI[i] });
     }
 
     sizeCanvas();
@@ -1019,16 +991,35 @@
     phase = 'gameover';
     const winner = players.find(p=>p.alive);
     const overlay = document.getElementById('winOverlay');
+    const coinResText = document.getElementById('coinResultText');
+
     document.getElementById('winDot').style.background = winner ? winner.color : '#999';
     document.getElementById('winDot').style.color = winner ? winner.color : '#999';
     document.getElementById('winText').textContent = winner ? (winner.name + ' 승리!') : '무승부';
+
+    if(matchIsBattle){
+      coinResText.classList.remove('hidden', 'gain', 'loss');
+      if(winner && winner.index === 0){
+        const reward = 50 * matchStakeOpponents;
+        account.coins += reward;
+        coinResText.textContent = `대전 승리 보상 +${reward} 코인!`;
+        coinResText.classList.add('gain');
+      } else {
+        const loss = Math.min(account.coins, 30);
+        account.coins -= loss;
+        coinResText.textContent = `대전 패배 -${loss} 코인`;
+        coinResText.classList.add('loss');
+      }
+      saveAccount();
+      renderAccountUI();
+    } else {
+      coinResText.classList.add('hidden');
+    }
+
     overlay.style.display = 'flex';
     sWin();
   }
 
-  // ---------------------------------------------------------------
-  // Input (pointer events)
-  // ---------------------------------------------------------------
   function getCanvasPos(e){
     const rect = canvas.getBoundingClientRect();
     return { x: (e.clientX-rect.left) * (parseFloat(canvas.style.width)/rect.width),
@@ -1038,7 +1029,7 @@
   function onPointerDown(e){
     if(phase !== 'waiting') return;
     const activePlayerIndex = turnOrder[currentTurn];
-    if(players[activePlayerIndex].isAI) return; // AI plays itself
+    if(players[activePlayerIndex].isAI) return;
 
     const pos = getCanvasPos(e);
     const grabMult = e.pointerType === 'touch' ? 3.0 : 2.2;
@@ -1051,9 +1042,10 @@
     if(best){
       drag = { anchorX: best.x, anchorY: best.y, curX: pos.x, curY: pos.y, stone: best };
       phase = 'dragging';
-      canvas.setPointerCapture(e.pointerId);
+      try { canvas.setPointerCapture(e.pointerId); } catch(err){}
     }
   }
+
   let lastPullSound = 0;
   function onPointerMove(e){
     if(phase !== 'dragging' || !drag) return;
@@ -1073,6 +1065,7 @@
       lastPullSound = now;
     }
   }
+
   function releaseDrag(d){
     const maxPull = boardRadius * MAX_PULL_RATIO;
     const dx = d.curX - d.anchorX, dy = d.curY - d.anchorY;
@@ -1097,9 +1090,6 @@
     drag = null;
   }
 
-  // ---------------------------------------------------------------
-  // AI
-  // ---------------------------------------------------------------
   function maybeRunAI(){
     if(phase !== 'waiting') return;
     const activePlayerIndex = turnOrder[currentTurn];
@@ -1121,7 +1111,6 @@
     const diff = AI_DIFFICULTY[aiDifficulty] || AI_DIFFICULTY.normal;
     let stone, target;
     if(Math.random() < diff.bestShotChance){
-      // pick the own-stone/enemy-stone pair with the clearest (closest) shot
       let bestDist = Infinity;
       own.forEach(o=>{
         enemies.forEach(en=>{
@@ -1142,7 +1131,7 @@
 
     const dist = Math.hypot(target.x-stone.x, target.y-stone.y);
     let angle = Math.atan2(target.y-stone.y, target.x-stone.x);
-    angle += (Math.random()-0.5) * diff.angleNoise; // aim imperfection, scaled by difficulty
+    angle += (Math.random()-0.5) * diff.angleNoise;
 
     let power = 0.55 + dist/(boardRadius*2.2);
     power += (Math.random()-0.5) * diff.powerJitter;
@@ -1182,15 +1171,13 @@
   }
 
   function bindCanvasEvents(){
+    if(!canvas) return;
     canvas.addEventListener('pointerdown', onPointerDown);
     canvas.addEventListener('pointermove', onPointerMove);
     canvas.addEventListener('pointerup', onPointerUp);
     canvas.addEventListener('pointercancel', onPointerUp);
   }
 
-  // ---------------------------------------------------------------
-  // Physics
-  // ---------------------------------------------------------------
   function stepPhysics(dt){
     const decay = Math.exp(-FRICTION_K*dt);
     let anyMoving = false;
@@ -1205,7 +1192,6 @@
       else anyMoving = true;
     });
 
-    // collisions
     for(let i=0;i<stones.length;i++){
       const a = stones[i];
       if(!a.alive) continue;
@@ -1240,7 +1226,6 @@
       }
     }
 
-    // boundary / fall off
     stones.forEach(s=>{
       if(!s.alive) return;
       const d = Math.hypot(s.x-boardCenter.x, s.y-boardCenter.y);
@@ -1268,14 +1253,10 @@
     }
   }
 
-  // ---------------------------------------------------------------
-  // Rendering
-  // ---------------------------------------------------------------
   function drawBoard(){
     const cw = parseFloat(canvas.style.width), ch = parseFloat(canvas.style.height);
     ctx.clearRect(0,0,cw,ch);
 
-    // outer shadow
     ctx.save();
     ctx.beginPath();
     ctx.arc(boardCenter.x, boardCenter.y+boardRadius*0.05, boardRadius*1.02, 0, Math.PI*2);
@@ -1284,7 +1265,6 @@
     ctx.fill();
     ctx.restore();
 
-    // rim
     const rimGrad = ctx.createRadialGradient(
       boardCenter.x, boardCenter.y, boardRadius*0.7,
       boardCenter.x, boardCenter.y, boardRadius*1.05
@@ -1296,7 +1276,6 @@
     ctx.fillStyle = rimGrad;
     ctx.fill();
 
-    // inner face
     const faceGrad = ctx.createRadialGradient(
       boardCenter.x - boardRadius*0.25, boardCenter.y - boardRadius*0.3, boardRadius*0.1,
       boardCenter.x, boardCenter.y, boardRadius
@@ -1309,7 +1288,6 @@
     ctx.fillStyle = faceGrad;
     ctx.fill();
 
-    // subtle wood grain rings
     ctx.save();
     ctx.clip();
     ctx.strokeStyle = 'rgba(0,0,0,0.10)';
@@ -1321,14 +1299,12 @@
     }
     ctx.restore();
 
-    // center emblem ring
     ctx.beginPath();
     ctx.arc(boardCenter.x, boardCenter.y, boardRadius*0.16, 0, Math.PI*2);
     ctx.strokeStyle = 'rgba(242,233,220,0.12)';
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // inner edge highlight
     ctx.beginPath();
     ctx.arc(boardCenter.x, boardCenter.y, boardRadius*0.985, 0, Math.PI*2);
     ctx.strokeStyle = 'rgba(255,255,255,0.06)';
@@ -1346,26 +1322,22 @@
       ctx.translate(s.x, s.y);
       ctx.scale(scale, scale);
 
-      // contact shadow (tight, flat — a disc sitting on the board, not a floating ball)
       ctx.beginPath();
       ctx.ellipse(s.r*0.08, s.r*0.14, s.r*0.98, s.r*0.86, 0, 0, Math.PI*2);
       ctx.fillStyle = 'rgba(0,0,0,0.4)';
       ctx.fill();
 
-      // outer rim — the thin edge/lip of the stone (slightly darker than the face)
       ctx.beginPath();
       ctx.arc(0,0,s.r,0,Math.PI*2);
       ctx.fillStyle = darken(s.color, 30);
       ctx.fill();
 
-      // flat top face, slightly inset — matte, not glossy
       const faceR = s.r*0.9;
       ctx.beginPath();
       ctx.arc(0,0,faceR,0,Math.PI*2);
       ctx.fillStyle = s.color;
       ctx.fill();
 
-      // soft directional sheen — a small, low-opacity highlight rather than a full sphere gradient
       ctx.save();
       ctx.clip();
       ctx.beginPath();
@@ -1378,14 +1350,12 @@
       ctx.fill();
       ctx.restore();
 
-      // hairline rim stroke for edge definition
       ctx.beginPath();
       ctx.arc(0,0,s.r*0.985,0,Math.PI*2);
       ctx.lineWidth = Math.max(1, s.r*0.05);
       ctx.strokeStyle = 'rgba(0,0,0,0.3)';
       ctx.stroke();
 
-      // active-turn glow ring
       const activeIndex = turnOrder[currentTurn];
       if(s.playerIndex === activeIndex && (phase==='waiting'||phase==='dragging') && s.alive){
         ctx.beginPath();
@@ -1415,7 +1385,6 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // launch direction arrow (opposite of pull)
     const nx = -dx/(dist||1), ny = -dy/(dist||1);
     const arrowLen = drag.stone.r*1.6 + power*boardRadius*0.3;
     const ax = drag.anchorX + nx*arrowLen, ay = drag.anchorY + ny*arrowLen;
@@ -1425,7 +1394,7 @@
     ctx.strokeStyle = `rgba(217,164,65,${0.4+power*0.6})`;
     ctx.lineWidth = 3 + power*4;
     ctx.stroke();
-    // arrow head
+
     const headAng = Math.atan2(ny,nx);
     ctx.beginPath();
     ctx.moveTo(ax, ay);
@@ -1437,7 +1406,6 @@
     ctx.restore();
   }
 
-  function lighten(hex, amt){ return shade(hex, amt); }
   function darken(hex, amt){ return shade(hex, -amt); }
   function shade(hex, amt){
     const c = hex.replace('#','');
@@ -1447,9 +1415,6 @@
     return '#' + (r<<16 | g<<8 | b).toString(16).padStart(6,'0');
   }
 
-  // ---------------------------------------------------------------
-  // Main loop
-  // ---------------------------------------------------------------
   let rafRunning = false;
   function loop(t){
     const dt = Math.min(0.032, (t-lastTime)/1000 || 0);
@@ -1468,9 +1433,6 @@
     requestAnimationFrame(loop);
   }
 
-  // ---------------------------------------------------------------
-  // Resize
-  // ---------------------------------------------------------------
   let resizeTimer;
   function scheduleResize(){
     if(phase === 'setup') return;
@@ -1483,13 +1445,11 @@
     window.visualViewport.addEventListener('resize', scheduleResize);
   }
 
-  // bind canvas events once DOM canvas exists (it exists from the start, hidden)
   document.addEventListener('DOMContentLoaded', ()=>{
     canvas = document.getElementById('board');
     ctx = canvas.getContext('2d');
     bindCanvasEvents();
   });
-  // in case DOMContentLoaded already fired
   if(document.readyState !== 'loading'){
     canvas = document.getElementById('board');
     ctx = canvas.getContext('2d');
