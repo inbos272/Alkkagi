@@ -656,6 +656,7 @@
   let lastTime = 0;
   let woodPattern = null;
   let gameId = 0; // bumped every new match so stale AI timers cannot affect the current match
+  let turnWatchdogTimer = null;
   const LOCAL_PLAYER_INDEX = 0;
   let account = { deviceId:'', nickname:'손님', coins:0 };
   let accountSaveTimer = null;
@@ -929,6 +930,7 @@
       showToast(t('battle.leavePenaltyDone',{n:BATTLE_QUIT_PENALTY}), true);
     }
     gameId++; // invalidate any pending AI move timers
+    clearTurnWatchdog();
     drag = null;
     document.getElementById('winOverlay').style.display = 'none';
     phase='setup';
@@ -1193,7 +1195,26 @@
   // ---------------------------------------------------------------
   // Game setup
   // ---------------------------------------------------------------
+  function clearTurnWatchdog(){
+    if(turnWatchdogTimer){ clearTimeout(turnWatchdogTimer); turnWatchdogTimer=null; }
+  }
+  function armTurnWatchdog(myGameId){
+    clearTurnWatchdog();
+    turnWatchdogTimer=setTimeout(()=>{
+      if(myGameId!==gameId || phase!=='settling' || matchSettled) return;
+      // A safety net for an unexpected physics deadlock (NaN velocity,
+      // a missed collision state, etc.). Never leave a match frozen.
+      stones.forEach(s=>{ if(s.alive){ s.vx=0; s.vy=0; } });
+      drag=null;
+      phase='waiting';
+      shotIsHuman=false;
+      contactPairs.clear();
+      nextTurn();
+    }, 9000);
+  }
+
   function startGame(){
+    clearTurnWatchdog();
     const resultBtn=document.getElementById('playAgainBtn');
     if(resultBtn){ resultBtn.dataset.resultMode='again'; resultBtn.textContent=t('common.playAgain'); }
     const finishedEl=document.querySelector('#winOverlay > p[data-i18n="game.finished"]');
@@ -1346,15 +1367,31 @@
   function aliveCount(){ return players.filter(p=>p.alive).length; }
 
   function nextTurn(){
+    clearTurnWatchdog();
+    // Repair any player state that says "alive" while they actually have
+    // no stones left. This prevents an AI/local turn from becoming stuck.
+    players.forEach(p=>{
+      if(p.alive && !stones.some(s=>s.playerIndex===p.index && s.alive)){
+        p.alive=false;
+      }
+    });
     if(aliveCount() <= 1){
       endGame();
       return;
     }
-    let tries = 0;
-    do{
+    let found=false;
+    for(let i=1;i<=turnOrder.length;i++){
       currentTurn = (currentTurn+1) % turnOrder.length;
-      tries++;
-    } while(!players[turnOrder[currentTurn]].alive && tries <= turnOrder.length);
+      const p=players[turnOrder[currentTurn]];
+      if(p && p.alive && stones.some(s=>s.playerIndex===p.index && s.alive)){
+        found=true;
+        break;
+      }
+    }
+    if(!found){
+      endGame();
+      return;
+    }
     updateTurnHUD();
     phase = 'waiting';
     maybeRunAI();
@@ -1362,6 +1399,7 @@
 
   function endGame(){
     if(phase==='gameover' || matchSettled) return;
+    clearTurnWatchdog();
     phase = 'gameover';
     matchSettled = true;
     const winner = players.find(p=>p.alive);
@@ -1457,6 +1495,7 @@
       shotNumber++;
       sLaunch(power);
       phase = 'settling';
+      armTurnWatchdog(gameId);
     } else {
       phase = 'waiting';
     }
@@ -1472,10 +1511,16 @@
   // AI
   // ---------------------------------------------------------------
   function maybeRunAI(){
-    if(phase !== 'waiting') return;
+    if(phase !== 'waiting' || matchSettled) return;
     const activePlayerIndex = turnOrder[currentTurn];
     const player = players[activePlayerIndex];
-    if(!player || !player.isAI) return;
+    if(!player){ nextTurn(); return; }
+    if(!player.alive || !stones.some(s=>s.playerIndex===activePlayerIndex && s.alive)){
+      player.alive=false;
+      nextTurn();
+      return;
+    }
+    if(!player.isAI) return;
     const myGameId = gameId;
     setTimeout(()=>{
       if(myGameId !== gameId || phase !== 'waiting') return;
@@ -1485,9 +1530,23 @@
   }
 
   function runAIMove(playerIndex, myGameId){
+    if(myGameId!==gameId || phase!=='waiting' || matchSettled) return;
+    const player=players[playerIndex];
     const own = stones.filter(s=>s.playerIndex===playerIndex && s.alive);
     const enemies = stones.filter(s=>s.playerIndex!==playerIndex && s.alive);
-    if(own.length===0 || enemies.length===0) return;
+    if(!player || !player.alive || own.length===0){
+      if(player) player.alive=false;
+      if(phase==='waiting') nextTurn();
+      return;
+    }
+    if(enemies.length===0){
+      // No legal target means this player cannot make a meaningful move.
+      // Re-evaluate the match rather than leaving the waiting phase forever.
+      players.forEach(p=>{ if(p.alive && !stones.some(s=>s.playerIndex===p.index && s.alive)) p.alive=false; });
+      if(aliveCount()<=1) endGame();
+      else nextTurn();
+      return;
+    }
 
     const diff = AI_DIFFICULTY[aiDifficulty] || AI_DIFFICULTY.normal;
     let stone, target;
@@ -1575,6 +1634,9 @@
 
       stones.forEach(s=>{
         if(!s.alive || s.fallProgress>0) return;
+        if(!Number.isFinite(s.x) || !Number.isFinite(s.y) || !Number.isFinite(s.vx) || !Number.isFinite(s.vy)){
+          s.x=boardCenter.x; s.y=boardCenter.y; s.vx=0; s.vy=0;
+        }
         s.x += s.vx*h;
         s.y += s.vy*h;
         s.vx *= decay;
@@ -1682,6 +1744,7 @@
     }
 
     if(!anyMoving && phase==='settling'){
+      clearTurnWatchdog();
       finishShotEffects();
       shotIsHuman = false;
       nextTurn();
