@@ -71,6 +71,15 @@
     font-family:'Jua', sans-serif; font-size:56px; width:90px; text-align:center; color:var(--cream);
   }
   .playerCountLabel{ font-size:13px; color:var(--cream-dim); margin-top:-14px; }
+  .mapSelectBlock{ width:100%; max-width:300px; }
+  .mapCards{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+  .mapCard{padding:9px 3px;border:1.5px solid var(--wood-rim);border-radius:11px;background:rgba(0,0,0,.22);color:var(--cream-dim);cursor:pointer;font-family:inherit;font-size:12px;}
+  .mapCard strong{display:block;color:var(--cream);font-family:'Jua',sans-serif;font-size:14px;margin-bottom:2px;}
+  .mapCard span{font-size:10px;opacity:.9;}
+  .mapCard.active{background:linear-gradient(180deg,var(--gold),#b9812c);color:#2b1a0d;border-color:#b9812c;}
+  .mapCard.active strong{color:#2b1a0d;}
+  .mapCard:active{transform:scale(.97);}
+
   .colorPreviewRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:340px; }
   .colorDot{ width:22px; height:22px; border-radius:50%; box-shadow: inset 0 -3px 4px rgba(0,0,0,.35), 0 2px 3px rgba(0,0,0,.4); }
 
@@ -97,7 +106,7 @@
     background:linear-gradient(180deg, var(--gold), #b9812c);
     border-color:#b9812c; color:#2b1a0d; font-weight:700;
   }
-  #startBtn, #aiStartBtn{
+  #startBtn{
     margin-top:6px;
     padding:16px 46px;
     font-family:'Jua', sans-serif; font-size:22px; letter-spacing:1px;
@@ -108,7 +117,7 @@
     box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 5px 0 #8a5f1e, 0 8px 14px rgba(0,0,0,.45);
     transition: transform .08s ease, box-shadow .08s ease;
   }
-  #startBtn:active, #aiStartBtn:active{ transform: translateY(4px); box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 1px 0 #8a5f1e, 0 3px 8px rgba(0,0,0,.4); }
+  #startBtn:active{ transform: translateY(4px); box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 1px 0 #8a5f1e, 0 3px 8px rgba(0,0,0,.4); }
 
   /* ---------- Game screen ---------- */
   #gameScreen{
@@ -122,13 +131,14 @@
   #boardWrap{ position:relative; display:flex; align-items:center; justify-content:center; width:100%; flex:1 1 auto; min-height:0; }
 
   #topBar{
-    position:absolute; top:max(12px, env(safe-area-inset-top)); left:max(12px, env(safe-area-inset-left)); right:max(12px, env(safe-area-inset-right));
-    display:flex; align-items:flex-start; justify-content:space-between;
-    z-index:6; gap:8px;
+    position:absolute; top:max(10px, env(safe-area-inset-top)); left:max(10px, env(safe-area-inset-left)); right:max(10px, env(safe-area-inset-right));
+    display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:start;
+    z-index:6; gap:10px; pointer-events:none;
   }
   #accountChip, #coinChip{
     pointer-events:auto;
     display:flex; align-items:center; gap:7px;
+    min-width:0;
     padding:7px 12px;
     background:rgba(13,23,18,.68);
     border:1.5px solid rgba(138,90,53,.7);
@@ -136,6 +146,9 @@
     font-size:13px;
     backdrop-filter: blur(3px);
   }
+  #accountChip{justify-self:start;}
+  #coinChip{justify-self:center;}
+  .topRightGroup{justify-self:end; display:flex; align-items:center; gap:8px;}
   #accountChip .avatarDot{
     width:22px; height:22px; border-radius:50%; flex-shrink:0;
     background:linear-gradient(180deg, var(--gold), #b9812c);
@@ -157,17 +170,16 @@
     background:radial-gradient(circle at 35% 30%, #ffe9a8, #d9a441 55%, #9c6f22 100%);
     box-shadow: inset 0 -2px 2px rgba(0,0,0,.3);
   }
-  .topRightGroup{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
-  .topRightIcons{ display:flex; gap:8px; pointer-events:auto; }
+  .topRightIcons{ display:flex; gap:7px; pointer-events:auto; }
 
   #turnBar{
-    position:absolute; top:max(64px, calc(env(safe-area-inset-top) + 56px)); left:0; right:0;
+    position:absolute; top:max(68px, calc(env(safe-area-inset-top) + 58px)); left:0; right:0;
     display:flex; justify-content:center; z-index:5; pointer-events:none;
   }
   #turnPlaque{
     pointer-events:auto;
     display:flex; align-items:center; gap:9px;
-    padding:8px 20px;
+    padding:8px 16px;
     background:linear-gradient(180deg, var(--wood-face), var(--wood-rim-dark));
     border:2px solid var(--wood-rim);
     border-radius:999px;
@@ -178,7 +190,24 @@
   }
   #turnPlaque .dot{ width:14px; height:14px; border-radius:50%; box-shadow: inset 0 -2px 3px rgba(0,0,0,.35); flex-shrink:0; }
   #turnPlaque.pulse{ box-shadow:0 0 0 4px rgba(217,164,65,.35), 0 4px 10px rgba(0,0,0,.4); }
-  #turnText{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #turnText{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
+  #matchInfo{justify-self:center; align-self:start; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 12px; min-width:82px; background:rgba(13,23,18,.68); border:1.5px solid rgba(138,90,53,.7); border-radius:14px; backdrop-filter:blur(3px); pointer-events:none;}
+  #matchTypeText{font-family:'Jua',sans-serif;font-size:12px;color:var(--gold);}
+  #mapInfoText{font-size:10px;color:var(--cream-dim);}
+  #languageBar{position:fixed;right:14px;bottom:58px;z-index:50;pointer-events:auto;}
+  #languageBar.mainLanguage{top:max(14px,env(safe-area-inset-top));bottom:auto;}
+  #languageBar.gameLanguage{bottom:max(58px,calc(env(safe-area-inset-bottom) + 54px));}
+  #languageSelect{appearance:none;min-width:78px;padding:7px 24px 7px 10px;border:1.5px solid var(--wood-rim);border-radius:999px;background:rgba(13,23,18,.82);color:var(--cream);font-family:inherit;font-size:11px;outline:none;box-shadow:0 3px 8px rgba(0,0,0,.35);}
+  @media (max-width:560px){
+    #topBar{grid-template-columns:minmax(0,1fr) auto;gap:6px;}
+    #coinChip{grid-column:2;grid-row:1;}
+    .topRightGroup{grid-column:1 / -1;grid-row:2;justify-self:end;}
+    #accountChip{max-width:45vw;}
+    #matchInfo{display:none;}
+    #turnBar{top:max(96px, calc(env(safe-area-inset-top) + 86px));}
+    #languageBar{right:8px;}
+    #languageBar.gameLanguage{bottom:max(56px,calc(env(safe-area-inset-bottom) + 48px));}
+  }
 
   .iconBtn{
     width:40px; height:40px; border-radius:50%;
@@ -217,7 +246,8 @@
     display:flex; align-items:center; justify-content:center;
     font-size:10px; font-weight:700; color:rgba(0,0,0,.55);
   }
-  .playerChip .stoneBadge{ font-weight:700; color:var(--cream); }
+  .playerChip .playerNameMini{max-width:82px;overflow:hidden;text-overflow:ellipsis;}
+  .playerChip .stoneBadge{ font-weight:700; color:var(--cream); min-width:12px; text-align:center; }
   .playerChip.out{ opacity:.35; }
   .playerChip.out .stoneBadge{ text-decoration:line-through; }
 
@@ -235,6 +265,8 @@
   #coinResultText{ font-weight:700; font-size:16px; }
   #coinResultText.gain{ color:var(--gold); }
   #coinResultText.loss{ color:var(--danger); }
+  #winSummary{margin-top:-8px;display:flex;flex-direction:column;align-items:center;gap:5px;}
+  #winSummary .coinDetail{font-size:12px;color:var(--cream-dim);}
   #playAgainBtn{
     margin-top:8px; padding:14px 38px;
     font-family:'Jua', sans-serif; font-size:18px; color:#2b1a0d;
@@ -248,13 +280,34 @@
 
   .hidden{ display:none !important; }
 
-  /* ---------- Menu screens ---------- */
+  /* ---------- Menu screens (main menu / battle menu / AI match setup) ---------- */
   #mainMenuScreen{
-    display:flex; flex-direction:column; align-items:center; gap:26px;
-    padding:32px; padding-top:max(32px, env(safe-area-inset-top));
-    padding-bottom:max(32px, env(safe-area-inset-bottom));
+    display:flex; flex-direction:column; align-items:center;
+    width:min(920px,100%); min-height:100dvh;
+    padding:clamp(18px,4vw,34px);
+    padding-top:max(clamp(18px,4vw,34px), env(safe-area-inset-top));
+    padding-bottom:max(clamp(18px,4vw,34px), env(safe-area-inset-bottom));
     text-align:center; max-height:100dvh; overflow-y:auto; touch-action:pan-y;
     animation: fadeIn .4s ease;
+  }
+  .mainMenuTop{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:clamp(18px,4vh,34px);}
+  .profileCard{display:flex;align-items:center;gap:10px;min-width:0;padding:8px 12px;border:1.5px solid rgba(138,90,53,.72);background:rgba(13,23,18,.62);border-radius:16px;backdrop-filter:blur(4px);box-shadow:0 5px 14px rgba(0,0,0,.24);}
+  .profileAvatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--gold),#b9812c);color:#2b1a0d;font-family:'Jua',sans-serif;font-weight:700;flex:none;box-shadow:inset 0 2px 0 rgba(255,255,255,.28);}
+  .profileMeta{display:flex;flex-direction:column;align-items:flex-start;min-width:0;line-height:1.15;}
+  .profileNickname{font-weight:700;max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .profileCoins{font-size:11px;color:var(--gold);margin-top:3px;}
+  .menuLanguageHint{padding:6px 10px;border:1px solid rgba(138,90,53,.55);border-radius:999px;color:var(--cream-dim);font-size:11px;background:rgba(13,23,18,.45);}
+  .mainHero{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:760px;margin:auto 0;}
+  .mainHero .sub{max-width:620px;}
+  .mainMenuButtons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;width:min(760px,100%);margin-top:10px;}
+  .mainMenuButtons .menuBtn{min-height:116px;justify-content:center;}
+  @media (max-width:640px){
+    .mainMenuTop{margin-bottom:12px;}
+    .profileCard{padding:7px 10px;}
+    .profileAvatar{width:30px;height:30px;}
+    .profileNickname{max-width:42vw;}
+    .mainMenuButtons{grid-template-columns:1fr;gap:12px;}
+    .mainMenuButtons .menuBtn{min-height:94px;}
   }
   #battleMenuScreen, #aiMatchSetup{
     display:none; flex-direction:column; align-items:center; gap:26px;
@@ -340,45 +393,70 @@
   .confirmBtn.ghost{ background:rgba(0,0,0,.25); color:var(--cream-dim); border-color:var(--wood-rim); }
   .confirmBtn.danger{ background:linear-gradient(180deg, var(--danger), #8f3a2e); color:#fff2ee; }
   .confirmBtn:active{ transform:scale(.96); }
+  #resultConfirmBtn{ min-width:160px; }
+  #gameToast{
+    position:fixed; left:50%; bottom:max(84px,calc(env(safe-area-inset-bottom) + 72px));
+    transform:translate(-50%,16px); z-index:80; opacity:0; pointer-events:none;
+    padding:11px 16px; border-radius:999px;
+    background:rgba(13,23,18,.94); border:1.5px solid var(--wood-rim);
+    color:var(--cream); font-size:13px; white-space:nowrap;
+    box-shadow:0 8px 20px rgba(0,0,0,.35);
+    transition:opacity .2s ease, transform .2s ease;
+  }
+  #gameToast.show{ opacity:1; transform:translate(-50%,0); }
+  #gameToast.penalty{ border-color:var(--danger); }
 </style>
 </head>
 <body>
 <div id="app">
 
   <div id="mainMenuScreen">
-    <h1 class="display">알까기</h1>
-    <p class="sub">둥근 판 위에서 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요.<br>상대 알을 판 밖으로 쳐내고 마지막까지 남으세요.</p>
-    <div class="menuButtonCol">
-      <button class="menuBtn" id="gotoPracticeBtn">
-        <span class="menuBtnTitle">연습</span>
-        <span class="menuBtnDesc">인원, 알 개수, AI 여부까지 자유롭게 설정해서 즐겨요</span>
-      </button>
-      <button class="menuBtn" id="gotoBattleBtn">
-        <span class="menuBtnTitle">대전</span>
-        <span class="menuBtnDesc">AI 또는 다른 사람과 진짜 대결을 펼쳐요</span>
-      </button>
+    <div class="mainMenuTop">
+      <div class="profileCard">
+        <div class="profileAvatar" id="mainAvatarInitial">손</div>
+        <div class="profileMeta">
+          <div class="profileNickname" id="mainNicknameText">손님</div>
+          <div class="profileCoins"><span>🪙</span> <span id="mainCoinAmount">0</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="mainHero">
+      <h1 class="display" data-i18n="game.title">알까기</h1>
+      <p class="sub" data-i18n="menu.subtitle">둥근 판 위에서 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요.<br>상대 알을 판 밖으로 쳐내고 마지막까지 남으세요.</p>
+      <div class="mainMenuButtons">
+        <button class="menuBtn" id="gotoPracticeBtn">
+          <span class="menuBtnTitle" data-i18n="menu.practice">연습</span>
+          <span class="menuBtnDesc" data-i18n="menu.practiceDesc">인원, 알 개수, AI 여부까지 자유롭게 설정해서 즐겨요</span>
+        </button>
+        <button class="menuBtn" id="gotoBattleBtn">
+          <span class="menuBtnTitle" data-i18n="menu.battle">대전</span>
+          <span class="menuBtnDesc" data-i18n="menu.battleDesc">AI 또는 다른 사람과 진짜 대결을 펼쳐요</span>
+        </button>
+      </div>
     </div>
   </div>
 
+  <div id="languageBar"><select id="languageSelect" aria-label="Language"><option value="ko">한국어</option><option value="en">English</option><option value="zh">中文</option></select></div>
+
   <div id="battleMenuScreen">
-    <button class="backBtn" id="battleBackBtn">‹ 뒤로</button>
-    <h1 class="display">대전</h1>
+    <button class="backBtn" id="battleBackBtn">‹ <span data-i18n="common.back">뒤로</span></button>
+    <h1 class="display" data-i18n="menu.battle">대전</h1>
     <div class="menuButtonCol">
       <button class="menuBtn" id="gotoAiMatchBtn">
-        <span class="menuBtnTitle">AI 대전</span>
-        <span class="menuBtnDesc">2~4인 · 나 1명 + AI(어려움)와 대결해요</span>
+        <span class="menuBtnTitle" data-i18n="menu.aiBattle">AI 대전</span>
+        <span class="menuBtnDesc" data-i18n="menu.aiBattleDesc">2~4인 · 나 1명 + AI(어려움)와 대결해요</span>
       </button>
       <button class="menuBtn disabledBtn" id="gotoOnlineBtn" disabled>
-        <span class="menuBtnTitle">온라인 대전<span class="soonTag">준비 중</span></span>
-        <span class="menuBtnDesc">2~4인을 설정해 대기열을 만들어요 (곧 지원 예정)</span>
+        <span class="menuBtnTitle" data-i18n="menu.online">온라인 대전<span class="soonTag" data-i18n="menu.soon">준비 중</span></span>
+        <span class="menuBtnDesc" data-i18n="menu.onlineDesc">2~4인을 설정해 대기열을 만들어요 (곧 지원 예정)</span>
       </button>
     </div>
   </div>
 
   <div id="aiMatchSetup">
-    <button class="backBtn" id="aiMatchBackBtn">‹ 뒤로</button>
-    <h1 class="display">AI 대전</h1>
-    <p class="sub">나 1명과 어려움 난이도 AI가 맞붙어요.</p>
+    <button class="backBtn" id="aiMatchBackBtn">‹ <span data-i18n="common.back">뒤로</span></button>
+    <h1 class="display" data-i18n="menu.aiBattle">AI 대전</h1>
+    <p class="sub" data-i18n="ai.subtitle">나 1명과 어려움 난이도 AI가 맞붙어요.</p>
     <div>
       <div class="stepper">
         <button class="stepBtn" id="aiDecBtn">−</button>
@@ -387,15 +465,25 @@
         </div>
         <button class="stepBtn" id="aiIncBtn">+</button>
       </div>
-      <div class="playerCountLabel">전체 인원 (2~4명, 나 1명 + AI)</div>
+      <div class="playerCountLabel" data-i18n="ai.countLabel">전체 인원 (2~4명, 나 1명 + AI)</div>
     </div>
-    <button id="aiStartBtn">시작하기</button>
+    <div class="mapSelectBlock">
+      <div class="playerCountLabel mapSelectLabel" style="margin:0 0 7px" data-i18n="map.select">맵 선택</div>
+      <div class="mapCards" id="battleMapCards">
+        <button class="mapCard active" data-map="classic"><strong data-i18n="map.classic">클래식</strong><span data-i18n="map.classicDesc">표준</span></button>
+        <button class="mapCard" data-map="ice"><strong data-i18n="map.ice">빙판</strong><span data-i18n="map.iceDesc">미끄러움</span></button>
+        <button class="mapCard" data-map="bumper"><strong data-i18n="map.bumper">범퍼</strong><span data-i18n="map.bumperDesc">튕김</span></button>
+        <button class="mapCard" data-map="tiny"><strong data-i18n="map.tiny">미니</strong><span data-i18n="map.tinyDesc">좁은 판</span></button>
+        <button class="mapCard" data-map="sand"><strong data-i18n="map.sand">모래판</strong><span data-i18n="map.sandDesc">느림</span></button>
+      </div>
+    </div>
+    <button id="aiStartBtn" data-i18n="common.start">시작하기</button>
   </div>
 
   <div id="setupScreen">
-    <button class="backBtn" id="practiceBackBtn">‹ 뒤로</button>
-    <h1 class="display">알까기</h1>
-    <p class="sub">둥근 판 위에서 내 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요.<br>다른 알을 판 밖으로 쳐내고 마지막까지 남으세요.<br>플레이어를 AI로 설정하면 컴퓨터가 직접 조준하고 당기는 모습을 볼 수 있어요.</p>
+    <button class="backBtn" id="practiceBackBtn">‹ <span data-i18n="common.back">뒤로</span></button>
+    <h1 class="display" data-i18n="game.title">알까기</h1>
+    <p class="sub" data-i18n="practice.subtitle">둥근 판 위에서 내 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요.<br>다른 알을 판 밖으로 쳐내고 마지막까지 남으세요.<br>플레이어를 AI로 설정하면 컴퓨터가 직접 조준하고 당기는 모습을 볼 수 있어요.</p>
 
     <div>
       <div class="stepper">
@@ -405,7 +493,7 @@
         </div>
         <button class="stepBtn" id="incBtn">+</button>
       </div>
-      <div class="playerCountLabel">플레이어 수 (2~8명)</div>
+      <div class="playerCountLabel" data-i18n="practice.playerCount">플레이어 수 (2~8명)</div>
     </div>
 
     <div>
@@ -416,21 +504,32 @@
         </div>
         <button class="stepBtn" id="incStoneBtn">+</button>
       </div>
-      <div class="playerCountLabel">알 개수 (1인당)</div>
+      <div class="playerCountLabel" data-i18n="practice.stones">알 개수 (1인당)</div>
     </div>
 
     <div id="playerConfigList"></div>
 
-    <div id="aiDifficultyBlock" class="hidden">
-      <div class="segmented" id="difficultySegmented">
-        <button class="segBtn" data-diff="easy">쉬움</button>
-        <button class="segBtn active" data-diff="normal">보통</button>
-        <button class="segBtn" data-diff="hard">어려움</button>
+    <div class="mapSelectBlock">
+      <div class="playerCountLabel mapSelectLabel" style="margin:0 0 7px" data-i18n="map.select">맵 선택</div>
+      <div class="mapCards" id="practiceMapCards">
+        <button class="mapCard active" data-map="classic"><strong data-i18n="map.classic">클래식</strong><span data-i18n="map.classicDesc">표준</span></button>
+        <button class="mapCard" data-map="ice"><strong data-i18n="map.ice">빙판</strong><span data-i18n="map.iceDesc">미끄러움</span></button>
+        <button class="mapCard" data-map="bumper"><strong data-i18n="map.bumper">범퍼</strong><span data-i18n="map.bumperDesc">튕김</span></button>
+        <button class="mapCard" data-map="tiny"><strong data-i18n="map.tiny">미니</strong><span data-i18n="map.tinyDesc">좁은 판</span></button>
+        <button class="mapCard" data-map="sand"><strong data-i18n="map.sand">모래판</strong><span data-i18n="map.sandDesc">느림</span></button>
       </div>
-      <div class="playerCountLabel">AI 난이도</div>
     </div>
 
-    <button id="startBtn">시작하기</button>
+    <div id="aiDifficultyBlock" class="hidden">
+      <div class="segmented" id="difficultySegmented">
+        <button class="segBtn" data-diff="easy" data-i18n="difficulty.easy">쉬움</button>
+        <button class="segBtn active" data-diff="normal" data-i18n="difficulty.normal">보통</button>
+        <button class="segBtn" data-diff="hard" data-i18n="difficulty.hard">어려움</button>
+      </div>
+      <div class="playerCountLabel" data-i18n="practice.difficulty">AI 난이도</div>
+    </div>
+
+    <button id="startBtn" data-i18n="common.start">시작하기</button>
   </div>
 
   <div id="gameScreen">
@@ -441,11 +540,11 @@
         <input id="nicknameInput" class="hidden" maxlength="10" />
         <button id="editNickBtn" title="닉네임 수정">✎</button>
       </div>
+      <div id="matchInfo"><span id="matchTypeText">대전</span><span id="mapInfoText">클래식</span></div>
       <div class="topRightGroup">
         <div id="coinChip"><span class="coinIcon"></span><span id="coinAmount">0</span></div>
         <div class="topRightIcons">
           <button class="iconBtn" id="muteBtn" title="음소거">🔊</button>
-          <button class="iconBtn" id="restartBtn" title="다시 시작">⟳</button>
           <button class="iconBtn danger" id="exitBtn" title="게임 나가기">✕</button>
         </div>
       </div>
@@ -464,21 +563,23 @@
     <div id="winOverlay">
       <div class="winDot" id="winDot"></div>
       <h2 id="winText">플레이어 1 승리!</h2>
-      <p>알까기가 끝났어요</p>
-      <p id="coinResultText" class="hidden"></p>
-      <button id="playAgainBtn">다시 하기</button>
+      <p data-i18n="game.finished">알까기가 끝났어요</p>
+      <div id="winSummary"><p id="coinResultText" class="hidden"></p><span id="coinDetail" class="coinDetail"></span></div>
+      <button id="playAgainBtn" data-i18n="common.playAgain">다시 하기</button>
     </div>
 
     <div id="exitConfirmOverlay" class="hidden">
       <div class="confirmBox">
-        <p>게임을 나가고 메인 메뉴로 돌아갈까요?<br><span class="confirmSub">진행 중인 대결은 사라져요.</span></p>
+        <p data-i18n="exit.ask">게임을 나가고 메인 메뉴로 돌아갈까요?<br><span class="confirmSub" data-i18n="exit.sub">진행 중인 대결은 사라져요.</span></p>
         <div class="confirmBtnRow">
-          <button id="exitCancelBtn" class="confirmBtn ghost">취소</button>
-          <button id="exitConfirmBtn" class="confirmBtn danger">나가기</button>
+          <button id="exitCancelBtn" class="confirmBtn ghost" data-i18n="common.cancel">취소</button>
+          <button id="exitConfirmBtn" class="confirmBtn danger" data-i18n="common.exit">나가기</button>
         </div>
       </div>
     </div>
   </div>
+
+  <div id="gameToast" role="status" aria-live="polite"></div>
 
 </div>
 
@@ -486,6 +587,9 @@
 (function(){
   "use strict";
 
+  // ---------------------------------------------------------------
+  // Constants & palette
+  // ---------------------------------------------------------------
   const PALETTE = [
     {name:'빨강',  hex:'#E6394B'},
     {name:'파랑',  hex:'#4C7BD9'},
@@ -497,41 +601,172 @@
     {name:'하늘',  hex:'#06AED5'}
   ];
 
-  const FRICTION_K = 1.5;
-  const STOP_SPEED = 6;
-  const MAX_PULL_RATIO = 0.34;
-  const MAX_LAUNCH_SPEED = 1.45;
-  const STONE_RADIUS_RATIO = 0.085;
+  const FRICTION_K = 1.5;        // exponential velocity decay factor per second
+  const STOP_SPEED = 6;          // px/s below which a stone is considered stopped
+  const MAX_PULL_RATIO = 0.34;   // fraction of board radius = max pull distance
+  const MAX_LAUNCH_SPEED = 1.45; // multiplier applied to boardRadius to get px/s at full pull
+  const STONE_RADIUS_RATIO = 0.085; // fraction of board radius
+  const MAPS = {
+    classic: {name:'클래식', friction:1.5, restitution:0.92, bumper:false, sizeScale:1},
+    ice: {name:'빙판', friction:0.42, restitution:0.97, bumper:false, sizeScale:1},
+    bumper: {name:'범퍼', friction:1.15, restitution:1.12, bumper:true, sizeScale:1},
+    tiny: {name:'미니 아레나', friction:1.5, restitution:0.96, bumper:false, sizeScale:0.78},
+    sand: {name:'모래판', friction:2.7, restitution:0.84, bumper:false, sizeScale:1}
+  };
 
+  // ---------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------
   let playerCount = 4;
   let stonesPerPlayer = 2;
-  let playerAI = [false,true,true,true,true,true,true,true];
-  let aiDifficulty = 'normal';
-  let aiMatchPlayerCount = 3;
-  let matchIsBattle = false;
-  let matchStakeOpponents = 0;
+  let playerAI = [false,true,true,true,true,true,true,true]; // index 0 human by default, rest AI
+  let aiDifficulty = 'normal'; // easy | normal | hard — used by practice mode
+  let aiMatchPlayerCount = 3;  // 2~4, used by the dedicated AI 대전 mode
+  let selectedMap = 'classic';
+  let practiceMap = 'classic';
+  let battleMap = 'classic';
+  let matchIsBattle = false;   // true for 대전 modes (coins are staked); false for 연습
+  let matchStakeOpponents = 0; // number of opponents this match — win reward scales with this
   const AI_DIFFICULTY = {
     easy:   { angleNoise: 0.55, powerJitter: 0.32, targetRandomChance: 0.5, bestShotChance: 0.05 },
     normal: { angleNoise: 0.30, powerJitter: 0.18, targetRandomChance: 0.25, bestShotChance: 0.25 },
     hard:   { angleNoise: 0.10, powerJitter: 0.07, targetRandomChance: 0.05, bestShotChance: 0.85 }
   };
-  let players = [];
-  let stones = [];
+  let players = [];     // {index, color, isAI}
+  let stones = [];      // {x,y,vx,vy,r,color,alive,fallAnim,playerIndex}
   let turnOrder = [];
   let currentTurn = 0;
-  let phase = 'setup';
+  let phase = 'setup';  // setup | waiting | dragging | settling | gameover
   let boardRadius = 0;
   let boardCenter = {x:0,y:0};
   let dpr = Math.min(window.devicePixelRatio || 1, 2);
   let canvas, ctx;
-  let drag = null;
+  let drag = null; // {anchorX, anchorY, curX, curY, stone}
   let audioReady = false;
   let muted = false;
   let contactPairs = new Set();
+  let effects = [];
+  let screenShake = 0;
+  let slowMo = 1;
+  let shotStats = {knocks:0, hits:0};
+  let shotNumber = 0;
+  let shotIsHuman = false;
+  let matchSettled = false;
+  let language = 'ko';
   let lastTime = 0;
-  let gameId = 0;
+  let woodPattern = null;
+  let gameId = 0; // bumped every new match so stale AI timers cannot affect the current match
+  const LOCAL_PLAYER_INDEX = 0;
   let account = { deviceId:'', nickname:'손님', coins:0 };
+  let accountSaveTimer = null;
+  let accountSaveQueued = false;
+  const BATTLE_QUIT_PENALTY = 3;
 
+
+  // ---------------------------------------------------------------
+  // Language / i18n
+  // ---------------------------------------------------------------
+  const I18N = {
+    ko: {
+      'game.title':'알까기', 'menu.practice':'연습', 'menu.practiceDesc':'인원, 알 개수, AI 여부까지 자유롭게 설정해서 즐겨요',
+      'menu.battle':'대전', 'menu.battleDesc':'AI 또는 다른 사람과 진짜 대결을 펼쳐요', 'menu.aiBattle':'AI 대전',
+      'menu.aiBattleDesc':'2~4인 · 나 1명 + AI(어려움)와 대결해요', 'human':'사람', 'menu.online':'온라인 대전', 'menu.soon':'준비 중',
+      'menu.onlineDesc':'2~4인을 설정해 대기열을 만들어요 (곧 지원 예정)', 'menu.languageHint':'언어', 'menu.subtitle':'둥근 판 위에서 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요.<br>상대 알을 판 밖으로 쳐내고 마지막까지 남으세요.',
+      'ai.subtitle':'나 1명과 어려움 난이도 AI가 맞붙어요.', 'ai.countLabel':'전체 인원 (2~4명, 나 1명 + AI)',
+      'practice.subtitle':'둥근 판 위에서 내 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요.<br>다른 알을 판 밖으로 쳐내고 마지막까지 남으세요.<br>플레이어를 AI로 설정하면 컴퓨터가 직접 조준하고 당기는 모습을 볼 수 있어요.',
+      'practice.playerCount':'플레이어 수 (2~8명)', 'practice.stones':'알 개수 (1인당)', 'practice.difficulty':'AI 난이도',
+      'difficulty.easy':'쉬움', 'difficulty.normal':'보통', 'difficulty.hard':'어려움', 'common.back':'뒤로', 'common.start':'시작하기',
+      'common.playAgain':'다시 하기', 'common.cancel':'취소', 'common.exit':'나가기', 'map.select':'맵 선택',
+      'map.classic':'클래식','map.classicDesc':'표준','map.ice':'빙판','map.iceDesc':'미끄러움','map.bumper':'범퍼','map.bumperDesc':'튕김',
+      'map.tiny':'미니','map.tinyDesc':'좁은 판','map.sand':'모래판','map.sandDesc':'느림',
+      'game.finished':'알까기가 끝났어요','exit.ask':'게임을 나가고 메인 메뉴로 돌아갈까요?<br><span class="confirmSub">진행 중인 대결은 사라져요.</span>',
+      'exit.sub':'진행 중인 대결은 사라져요.', 'player':'플레이어', 'ai':'AI', 'turn':'차례', 'battle':'대전', 'practice':'연습',
+      'classic':'클래식', 'aiTurn':'AI 차례', 'humanTurn':'차례', 'win':'승리!', 'draw':'무승부',
+      'coinWin':'+{n} 코인', 'coinLose':'-{n} 코인', 'coinDetailWin':'상대 {n}명 · 대전 승리 보상', 'coinDetailLose':'대전 패배 · 코인 일부 차감',
+      'effect.hit':'HIT!', 'effect.perfect':'PERFECT HIT!', 'effect.ko':'KO!', 'effect.double':'DOUBLE KNOCK!', 'effect.triple':'TRIPLE KNOCK!', 'effect.mega':'MEGA KNOCK!',
+      'effect.combo3':'완벽한 연속 격파!', 'effect.combo2':'연속으로 쳐냈어요!',
+      'battle.defeat':'패배했어요', 'battle.defeatDetail':'이번 대전에서 패배했어요.', 'battle.confirm':'확인',
+      'battle.leavePenalty':'대전 중 탈퇴로 {n} 코인이 차감됩니다.', 'battle.leavePenaltyDone':'대전 중 탈퇴로 {n} 코인이 차감됐어요.',
+      'battle.leaveConfirm':'대전 중입니다. 지금 나가면 {n} 코인이 차감됩니다. 그래도 나갈까요?'
+    },
+    en: {
+      'game.title':'Marbles', 'menu.practice':'Practice', 'menu.practiceDesc':'Set players, stones, and AI freely and play your way',
+      'menu.battle':'Battle', 'menu.battleDesc':'Face AI or another player in a real match', 'menu.aiBattle':'AI Battle',
+      'menu.aiBattleDesc':'2–4 players · You + Hard AI opponents', 'human':'Human', 'menu.online':'Online Battle', 'menu.soon':'Coming Soon',
+      'menu.onlineDesc':'Set 2–4 players and join a matchmaking queue (coming soon)', 'menu.languageHint':'Language', 'menu.subtitle':'Pull a marble and release it to launch in the opposite direction.<br>Knock opponents off the board and be the last one standing.',
+      'ai.subtitle':'You face Hard-difficulty AI opponents.', 'ai.countLabel':'Total players (2–4, you + AI)',
+      'practice.subtitle':'Pull your marble and release it to launch in the opposite direction.<br>Knock other marbles off the board and be the last one standing.<br>Set players to AI to watch the computer aim and shoot.',
+      'practice.playerCount':'Players (2–8)', 'practice.stones':'Stones per player', 'practice.difficulty':'AI difficulty',
+      'difficulty.easy':'Easy', 'difficulty.normal':'Normal', 'difficulty.hard':'Hard', 'common.back':'Back', 'common.start':'Start',
+      'common.playAgain':'Play Again', 'common.cancel':'Cancel', 'common.exit':'Exit', 'map.select':'Map',
+      'map.classic':'Classic','map.classicDesc':'Standard','map.ice':'Ice','map.iceDesc':'Slippery','map.bumper':'Bumper','map.bumperDesc':'Bounce',
+      'map.tiny':'Tiny','map.tinyDesc':'Small board','map.sand':'Sand','map.sandDesc':'Slow',
+      'game.finished':'The match is over','exit.ask':'Leave the game and return to the main menu?<br><span class="confirmSub">Your current match will be lost.</span>',
+      'exit.sub':'Your current match will be lost.', 'player':'Player', 'ai':'AI', 'turn':'turn', 'battle':'Battle', 'practice':'Practice',
+      'classic':'Classic', 'aiTurn':'AI turn', 'humanTurn':'turn', 'win':'wins!', 'draw':'Draw',
+      'coinWin':'+{n} coins', 'coinLose':'-{n} coins', 'coinDetailWin':'{n} opponents · battle victory reward', 'coinDetailLose':'Battle loss · small coin penalty',
+      'effect.hit':'HIT!', 'effect.perfect':'PERFECT HIT!', 'effect.ko':'KO!', 'effect.double':'DOUBLE KNOCK!', 'effect.triple':'TRIPLE KNOCK!', 'effect.mega':'MEGA KNOCK!',
+      'effect.combo3':'Perfect combo!', 'effect.combo2':'Combo knockdown!',
+      'battle.defeat':'Defeat', 'battle.defeatDetail':'You lost this battle.', 'battle.confirm':'OK',
+      'battle.leavePenalty':'Leaving during a battle costs {n} coins.', 'battle.leavePenaltyDone':'You left the battle. {n} coins were deducted.',
+      'battle.leaveConfirm':'You are in a battle. Leaving now costs {n} coins. Leave anyway?'
+    },
+    zh: {
+      'game.title':'弹棋', 'menu.practice':'练习', 'menu.practiceDesc':'自由设置人数、棋子数量和 AI',
+      'menu.battle':'对战', 'menu.battleDesc':'与 AI 或其他玩家进行真正的对决', 'menu.aiBattle':'AI 对战',
+      'menu.aiBattleDesc':'2–4 人 · 你 + 困难 AI', 'human':'玩家', 'menu.online':'在线对战', 'menu.soon':'即将推出',
+      'menu.onlineDesc':'设置 2–4 人并进入匹配队列（即将推出）', 'menu.languageHint':'语言', 'menu.subtitle':'拉动棋子后松手，棋子会向相反方向弹出。<br>把对手棋子击出棋盘，成为最后留下的人。',
+      'ai.subtitle':'你将与困难难度的 AI 对战。', 'ai.countLabel':'总人数（2–4 人，你 + AI）',
+      'practice.subtitle':'拉动自己的棋子后松手，棋子会向相反方向弹出。<br>把其他棋子击出棋盘并坚持到最后。<br>设置 AI 后，可以观看电脑瞄准并发射。',
+      'practice.playerCount':'玩家人数（2–8）', 'practice.stones':'每位玩家棋子数', 'practice.difficulty':'AI 难度',
+      'difficulty.easy':'简单', 'difficulty.normal':'普通', 'difficulty.hard':'困难', 'common.back':'返回', 'common.start':'开始',
+      'common.playAgain':'再玩一次', 'common.cancel':'取消', 'common.exit':'退出', 'map.select':'选择地图',
+      'map.classic':'经典','map.classicDesc':'标准','map.ice':'冰面','map.iceDesc':'滑','map.bumper':'弹跳','map.bumperDesc':'强力反弹',
+      'map.tiny':'迷你','map.tinyDesc':'小棋盘','map.sand':'沙地','map.sandDesc':'减速',
+      'game.finished':'游戏结束了','exit.ask':'退出游戏并返回主菜单吗？<br><span class="confirmSub">当前对局将会丢失。</span>',
+      'exit.sub':'当前对局将会丢失。', 'player':'玩家', 'ai':'AI', 'turn':'回合', 'battle':'对战', 'practice':'练习',
+      'classic':'经典', 'aiTurn':'AI 回合', 'humanTurn':'回合', 'win':'胜利！', 'draw':'平局',
+      'coinWin':'+{n} 金币', 'coinLose':'-{n} 金币', 'coinDetailWin':'对手 {n} 人 · 对战胜利奖励', 'coinDetailLose':'对战失败 · 少量扣除金币',
+      'effect.hit':'命中！', 'effect.perfect':'完美命中！', 'effect.ko':'KO!', 'effect.double':'双杀！', 'effect.triple':'三杀！', 'effect.mega':'超级击破！',
+      'effect.combo3':'完美连击！', 'effect.combo2':'连续击破！',
+      'battle.defeat':'失败了', 'battle.defeatDetail':'你输掉了这场对战。', 'battle.confirm':'确认',
+      'battle.leavePenalty':'对战中退出将扣除 {n} 金币。', 'battle.leavePenaltyDone':'你退出了对战，扣除 {n} 金币。',
+      'battle.leaveConfirm':'你正在进行对战。现在退出将扣除 {n} 金币，确定要退出吗？'
+    }
+  };
+  function t(key, vars={}){
+    let str=(I18N[language]&&I18N[language][key]) || I18N.ko[key] || key;
+    Object.keys(vars).forEach(k=>{ str=str.replaceAll('{'+k+'}', String(vars[k])); });
+    return str;
+  }
+  function applyLanguage(){
+    document.documentElement.lang = language==='zh'?'zh':language;
+    document.querySelectorAll('[data-i18n]').forEach(el=>{ el.innerHTML=t(el.dataset.i18n); });
+    const select=document.getElementById('languageSelect'); if(select) select.value=language;
+    updateDynamicTexts();
+  }
+  async function setLanguage(next){
+    if(!I18N[next]) return;
+    language=next;
+    await store.set('alkkagi_language', language);
+    applyLanguage();
+  }
+  function playerLabel(n){ return t('player')+' '+n; }
+  function mapLabel(id){ return t('map.'+id); }
+  function updateDynamicTexts(){
+    const matchType=document.getElementById('matchTypeText');
+    if(matchType) matchType.textContent=matchIsBattle?t('battle'):t('practice');
+    const mapInfo=document.getElementById('mapInfoText');
+    if(mapInfo) mapInfo.textContent=mapLabel(selectedMap);
+    if(document.getElementById('playerConfigList')) renderPlayerConfig();
+    if(players.length && turnOrder.length){ updateTurnHUD(); }
+  }
+
+  // ---------------------------------------------------------------
+  // Storage (prefers the in-chat window.storage sandbox API; falls
+  // back to localStorage when running as a real packaged app where
+  // window.storage won't exist)
+  // ---------------------------------------------------------------
   const store = {
     async get(key){
       if(window.storage){
@@ -541,7 +776,7 @@
     },
     async set(key, value){
       if(window.storage){
-        try{ await window.storage.set(key, value, false); return; }catch(e){}
+        try{ await window.storage.set(key, value, false); return; }catch(e){ /* fall through */ }
       }
       try{ localStorage.setItem(key, value); }catch(e){}
     }
@@ -562,40 +797,93 @@
 
   async function loadAccount(){
     const raw = await store.get('alkkagi_account');
+    let loaded = false;
     if(raw){
-      try{ account = Object.assign(account, JSON.parse(raw)); }catch(e){}
-    } else {
+      try{
+        const parsed=JSON.parse(raw);
+        if(parsed && typeof parsed==='object'){ account = Object.assign(account, parsed); loaded=true; }
+      }catch(e){ console.warn('Account data could not be parsed; using defaults.',e); }
+    }
+    if(!loaded){
       account = { deviceId: randomDeviceId(), nickname: randomNickname(), coins: 100 };
       await store.set('alkkagi_account', JSON.stringify(account));
     }
+    if(typeof account.deviceId!=='string' || !account.deviceId) account.deviceId=randomDeviceId();
+    if(typeof account.nickname!=='string' || !account.nickname.trim()) account.nickname=randomNickname();
+    if(!Number.isFinite(account.coins)) account.coins=100;
+    account.coins=Math.max(0,Math.floor(account.coins));
     renderAccountUI();
   }
-  async function saveAccount(){
+  function requestAccountSave(immediate=false){
+    accountSaveQueued=true;
+    if(immediate){ flushAccountSave(); return; }
+    clearTimeout(accountSaveTimer);
+    accountSaveTimer=setTimeout(flushAccountSave,700);
+  }
+  async function flushAccountSave(){
+    if(!accountSaveQueued) return;
+    accountSaveQueued=false;
+    clearTimeout(accountSaveTimer);
+    accountSaveTimer=null;
     await store.set('alkkagi_account', JSON.stringify(account));
   }
+  function markAccountChanged(){ requestAccountSave(false); }
 
   function renderAccountUI(){
-    const nickEl = document.getElementById('nicknameText');
-    const avatarEl = document.getElementById('avatarInitial');
-    const coinEl = document.getElementById('coinAmount');
-    if(nickEl) nickEl.textContent = account.nickname;
-    if(avatarEl) avatarEl.textContent = account.nickname.slice(0,1);
-    if(coinEl) coinEl.textContent = account.coins;
+    const nickEls = [document.getElementById('nicknameText'), document.getElementById('mainNicknameText')];
+    const avatarEls = [document.getElementById('avatarInitial'), document.getElementById('mainAvatarInitial')];
+    const coinEls = [document.getElementById('coinAmount'), document.getElementById('mainCoinAmount')];
+    nickEls.forEach(el=>{ if(el) el.textContent=account.nickname; });
+    avatarEls.forEach(el=>{ if(el) el.textContent=(account.nickname||'?').slice(0,1); });
+    coinEls.forEach(el=>{ if(el) el.textContent=account.coins; });
+  }
+  let toastTimer = null;
+  function showToast(message, penalty=false){
+    const el=document.getElementById('gameToast');
+    if(!el) return;
+    el.textContent=message;
+    el.classList.toggle('penalty', !!penalty);
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(()=>el.classList.remove('show'), 2600);
   }
 
+  function getLocalBattlePlayer(){
+    return players.find(p=>p.index===LOCAL_PLAYER_INDEX) || null;
+  }
+  function isActiveLocalBattle(){
+    const local=getLocalBattlePlayer();
+    return !!(matchIsBattle && local && !local.isAI && local.alive && phase!=='gameover' && !matchSettled);
+  }
+
+
+  // ---------------------------------------------------------------
+  // Screen navigation
+  // ---------------------------------------------------------------
   const SCREENS = ['mainMenuScreen','battleMenuScreen','aiMatchSetup','setupScreen','gameScreen'];
   function showScreen(id){
+    const gameEl=document.getElementById('gameScreen');
+    const leavingGame = !!gameEl && !!gameEl.style.display && gameEl.style.display!=='none';
     SCREENS.forEach(s=>{
       document.getElementById(s).style.display = (s===id) ? 'flex' : 'none';
     });
+    const langBar=document.getElementById('languageBar');
+    if(langBar){
+      langBar.classList.toggle('gameLanguage', id==='gameScreen');
+      langBar.classList.toggle('mainLanguage', id!=='gameScreen');
+    }
+    if(id!=='gameScreen' && leavingGame) stopGameMusic();
+    if(id==='gameScreen') startGameMusic();
+    renderAccountUI();
   }
 
-  document.getElementById('gotoPracticeBtn').addEventListener('click', ()=>{ matchIsBattle = false; showScreen('setupScreen'); });
+  document.getElementById('gotoPracticeBtn').addEventListener('click', ()=>{ showScreen('setupScreen'); });
   document.getElementById('gotoBattleBtn').addEventListener('click', ()=>{ showScreen('battleMenuScreen'); });
   document.getElementById('battleBackBtn').addEventListener('click', ()=>{ showScreen('mainMenuScreen'); });
   document.getElementById('practiceBackBtn').addEventListener('click', ()=>{ showScreen('mainMenuScreen'); });
   document.getElementById('aiMatchBackBtn').addEventListener('click', ()=>{ showScreen('battleMenuScreen'); });
   document.getElementById('gotoAiMatchBtn').addEventListener('click', ()=>{ showScreen('aiMatchSetup'); });
+  // 온라인 대전 is intentionally non-interactive for now (disabled attribute in HTML)
 
   const aiPlayerCountNum = document.getElementById('aiPlayerCountNum');
   document.getElementById('aiDecBtn').addEventListener('click', ()=>{
@@ -609,10 +897,11 @@
   document.getElementById('aiStartBtn').addEventListener('click', async ()=>{
     playerCount = aiMatchPlayerCount;
     playerAI = new Array(8).fill(true);
-    playerAI[0] = false;
+    playerAI[LOCAL_PLAYER_INDEX] = false; // only the local player can be human in battle
     aiDifficulty = 'hard';
     stonesPerPlayer = Math.min(stonesPerPlayer, maxStonesPerPlayer());
     matchIsBattle = true;
+    selectedMap = battleMap;
     matchStakeOpponents = playerCount - 1;
     await initAudio();
     startGame();
@@ -620,16 +909,33 @@
 
   const exitConfirmOverlay = document.getElementById('exitConfirmOverlay');
   document.getElementById('exitBtn').addEventListener('click', ()=>{
+    const p=exitConfirmOverlay.querySelector('.confirmBox p');
+    if(p){
+      if(isActiveLocalBattle()) p.innerHTML=t('battle.leaveConfirm',{n:BATTLE_QUIT_PENALTY});
+      else p.innerHTML=t('exit.ask');
+    }
     exitConfirmOverlay.classList.remove('hidden');
   });
   document.getElementById('exitCancelBtn').addEventListener('click', ()=>{
     exitConfirmOverlay.classList.add('hidden');
   });
   document.getElementById('exitConfirmBtn').addEventListener('click', ()=>{
+    const leavingBattle=isActiveLocalBattle();
     exitConfirmOverlay.classList.add('hidden');
-    gameId++;
+    if(leavingBattle){
+      account.coins=Math.max(0,account.coins-BATTLE_QUIT_PENALTY);
+      renderAccountUI();
+      requestAccountSave(true);
+      showToast(t('battle.leavePenaltyDone',{n:BATTLE_QUIT_PENALTY}), true);
+    }
+    gameId++; // invalidate any pending AI move timers
     drag = null;
     document.getElementById('winOverlay').style.display = 'none';
+    phase='setup';
+    shotIsHuman=false;
+    matchSettled=true;
+    stopGameMusic();
+    requestAccountSave(true);
     showScreen('mainMenuScreen');
   });
 
@@ -637,6 +943,18 @@
     const anyAI = playerAI.slice(0, playerCount).some(v=>v);
     document.getElementById('aiDifficultyBlock').classList.toggle('hidden', !anyAI);
   }
+  function selectMap(mapId, scope){
+    if(!MAPS[mapId]) return;
+    if(scope==='#battleMapCards') battleMap=mapId;
+    else practiceMap=mapId;
+    document.querySelectorAll(scope+' .mapCard').forEach(b=>b.classList.toggle('active', b.dataset.map===mapId));
+  }
+  function syncMapSelection(scope,mapId){
+    document.querySelectorAll(scope+' .mapCard').forEach(b=>b.classList.toggle('active',b.dataset.map===mapId));
+  }
+  document.querySelectorAll('#practiceMapCards .mapCard').forEach(btn=>btn.addEventListener('click',()=>selectMap(btn.dataset.map,'#practiceMapCards')));
+  document.querySelectorAll('#battleMapCards .mapCard').forEach(btn=>btn.addEventListener('click',()=>selectMap(btn.dataset.map,'#battleMapCards')));
+
   document.querySelectorAll('#difficultySegmented .segBtn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       aiDifficulty = btn.dataset.diff;
@@ -644,6 +962,9 @@
     });
   });
 
+  // ---------------------------------------------------------------
+  // Setup screen wiring
+  // ---------------------------------------------------------------
   const playerCountNum = document.getElementById('playerCountNum');
   const stoneCountNum = document.getElementById('stoneCountNum');
 
@@ -671,14 +992,14 @@
 
       const label = document.createElement('span');
       label.className = 'playerRowLabel';
-      label.textContent = '플레이어 ' + (i+1);
+      label.textContent = playerLabel(i+1);
 
       const toggle = document.createElement('button');
       toggle.className = 'aiToggleBtn' + (playerAI[i] ? ' isAI' : '');
-      toggle.textContent = playerAI[i] ? 'AI' : '사람';
+      toggle.textContent = playerAI[i] ? t('ai') : t('human');
       toggle.addEventListener('click', ()=>{
         playerAI[i] = !playerAI[i];
-        toggle.textContent = playerAI[i] ? 'AI' : '사람';
+        toggle.textContent = playerAI[i] ? t('ai') : t('human');
         toggle.classList.toggle('isAI', playerAI[i]);
         updateDifficultyVisibility();
       });
@@ -692,6 +1013,8 @@
   }
   renderPlayerConfig();
   loadAccount();
+  store.get('alkkagi_language').then(v=>{ if(v && I18N[v]) language=v; applyLanguage(); });
+  document.getElementById('languageSelect').addEventListener('change', e=>setLanguage(e.target.value));
   showScreen('mainMenuScreen');
 
   document.getElementById('decBtn').addEventListener('click', ()=>{
@@ -717,23 +1040,33 @@
   });
 
   document.getElementById('startBtn').addEventListener('click', async ()=>{
+    selectedMap = practiceMap;
+    matchIsBattle = false;
+    matchStakeOpponents = 0;
     await initAudio();
     startGame();
   });
   document.getElementById('playAgainBtn').addEventListener('click', ()=>{
-    document.getElementById('winOverlay').style.display = 'none';
-    startGame();
-  });
-  document.getElementById('restartBtn').addEventListener('click', ()=>{
+    const btn=document.getElementById('playAgainBtn');
+    if(btn && btn.dataset.resultMode==='defeat'){
+      document.getElementById('winOverlay').style.display='none';
+      matchSettled=true;
+      stopGameMusic();
+      showScreen('mainMenuScreen');
+      return;
+    }
     document.getElementById('winOverlay').style.display = 'none';
     startGame();
   });
   document.getElementById('muteBtn').addEventListener('click', ()=>{
     muted = !muted;
     document.getElementById('muteBtn').textContent = muted ? '🔇' : '🔊';
-    if(Tone.Destination) Tone.Destination.mute = muted;
+    if(bgLoop){ Tone.Destination.mute = muted; }
   });
 
+  // ---------------------------------------------------------------
+  // Nickname editing
+  // ---------------------------------------------------------------
   const nicknameText = document.getElementById('nicknameText');
   const nicknameInput = document.getElementById('nicknameInput');
   document.getElementById('editNickBtn').addEventListener('click', ()=>{
@@ -749,7 +1082,7 @@
     nicknameText.classList.remove('hidden');
     nicknameInput.classList.add('hidden');
     renderAccountUI();
-    saveAccount();
+    markAccountChanged();
   }
   nicknameInput.addEventListener('blur', commitNickname);
   nicknameInput.addEventListener('keydown', (e)=>{
@@ -757,55 +1090,73 @@
     e.stopPropagation();
   });
 
-  let pluck, thud, whoosh, dropSynth, winSynth, bgSynth, bgLoop;
+  // ---------------------------------------------------------------
+  // Audio (Tone.js)
+  // ---------------------------------------------------------------
+  let pluck, thud, whoosh, dropSynth, winSynth, bgSynth, bgLoop, bgPart;
 
   async function initAudio(){
     if(audioReady) return;
-    try {
-      await Tone.start();
-      const masterVol = new Tone.Volume(-6).toDestination();
+    await Tone.start();
 
-      pluck = new Tone.MembraneSynth({
-        pitchDecay: 0.008, octaves: 3,
-        envelope:{attack:0.001, decay:0.15, sustain:0}
-      }).connect(masterVol);
+    const masterVol = new Tone.Volume(-6).toDestination();
 
-      thud = new Tone.MembraneSynth({
-        pitchDecay: 0.02, octaves: 2,
-        envelope:{attack:0.001, decay:0.1, sustain:0}
-      }).connect(masterVol);
+    pluck = new Tone.MembraneSynth({
+      pitchDecay: 0.008, octaves: 3,
+      envelope:{attack:0.001, decay:0.15, sustain:0}
+    }).connect(masterVol);
 
-      whoosh = new Tone.NoiseSynth({
-        noise:{type:'pink'},
-        envelope:{attack:0.01, decay:0.08, sustain:0}
-      }).connect(new Tone.Filter(1200,'lowpass').connect(masterVol));
+    thud = new Tone.MembraneSynth({
+      pitchDecay: 0.02, octaves: 2,
+      envelope:{attack:0.001, decay:0.1, sustain:0}
+    }).connect(masterVol);
 
-      dropSynth = new Tone.Synth({
-        oscillator:{type:'sine'},
-        envelope:{attack:0.01, decay:0.4, sustain:0, release:0.1}
-      }).connect(masterVol);
+    whoosh = new Tone.NoiseSynth({
+      noise:{type:'pink'},
+      envelope:{attack:0.01, decay:0.08, sustain:0}
+    }).connect(new Tone.Filter(1200,'lowpass').connect(masterVol));
 
-      winSynth = new Tone.PolySynth(Tone.Synth, {
-        oscillator:{type:'triangle'},
-        envelope:{attack:0.01, decay:0.3, sustain:0.2, release:0.6}
-      }).connect(masterVol);
+    dropSynth = new Tone.Synth({
+      oscillator:{type:'sine'},
+      envelope:{attack:0.01, decay:0.4, sustain:0, release:0.1}
+    }).connect(masterVol);
 
-      bgSynth = new Tone.PolySynth(Tone.Synth, {
-        oscillator:{type:'sine'},
-        envelope:{attack:0.02, decay:0.6, sustain:0.1, release:1.2}
-      }).connect(new Tone.Volume(-20).connect(new Tone.Reverb(2.5).connect(masterVol)));
+    winSynth = new Tone.PolySynth(Tone.Synth, {
+      oscillator:{type:'triangle'},
+      envelope:{attack:0.01, decay:0.3, sustain:0.2, release:0.6}
+    }).connect(masterVol);
 
-      const scale = ['C4','D4','E4','G4','A4','C5','D5','E5'];
-      bgLoop = new Tone.Loop((time)=>{
-        if(Math.random() < 0.75){
-          const note = scale[Math.floor(Math.random()*scale.length)];
-          bgSynth.triggerAttackRelease(note, '4n', time, 0.5);
-        }
-      }, '2n').start(0);
+    // gentle ambient background loop (soft marimba-ish pentatonic wander)
+    bgSynth = new Tone.PolySynth(Tone.Synth, {
+      oscillator:{type:'sine'},
+      envelope:{attack:0.02, decay:0.6, sustain:0.1, release:1.2}
+    }).connect(new Tone.Volume(-20).connect(new Tone.Reverb(2.5).connect(masterVol)));
 
-      Tone.Transport.start();
-      audioReady = true;
-    } catch(e) { console.warn("Audio init deferred", e); }
+    const scale = ['C4','D4','E4','G4','A4','C5','D5','E5'];
+    bgLoop = new Tone.Loop((time)=>{
+      if(Math.random() < 0.75){
+        const note = scale[Math.floor(Math.random()*scale.length)];
+        bgSynth.triggerAttackRelease(note, '4n', time, 0.5);
+      }
+    }, '2n').start(0);
+
+    Tone.Transport.stop();
+    audioReady = true;
+  }
+
+  function startGameMusic(){
+    if(!audioReady || !bgLoop) return;
+    try{
+      Tone.Destination.mute = muted;
+      if(Tone.Transport.state !== 'started') Tone.Transport.start();
+    }catch(e){ console.warn('Music start failed',e); }
+  }
+  function stopGameMusic(){
+    if(!audioReady) return;
+    try{
+      Tone.Transport.stop();
+      Tone.Transport.position=0;
+    }catch(e){ console.warn('Music stop failed',e); }
   }
 
   function sPull(dist01){
@@ -839,7 +1190,14 @@
     winSynth.triggerAttackRelease('C5', '4n', now+0.36);
   }
 
+  // ---------------------------------------------------------------
+  // Game setup
+  // ---------------------------------------------------------------
   function startGame(){
+    const resultBtn=document.getElementById('playAgainBtn');
+    if(resultBtn){ resultBtn.dataset.resultMode='again'; resultBtn.textContent=t('common.playAgain'); }
+    const finishedEl=document.querySelector('#winOverlay > p[data-i18n="game.finished"]');
+    if(finishedEl) finishedEl.textContent=t('game.finished');
     showScreen('gameScreen');
 
     canvas = document.getElementById('board');
@@ -847,10 +1205,17 @@
 
     gameId++;
     drag = null;
+    effects = [];
+    screenShake = 0;
+    slowMo = 1;
+    shotIsHuman = false;
+    matchSettled = false;
 
     players = [];
     for(let i=0;i<playerCount;i++){
-      players.push({ index:i, color: PALETTE[i].hex, name: (i===0 && matchIsBattle)? account.nickname : '플레이어 ' + (i+1), alive:true, isAI: !!playerAI[i] });
+      const isAI=!!playerAI[i];
+      const displayName=(matchIsBattle && i===LOCAL_PLAYER_INDEX && !isAI) ? account.nickname : playerLabel(i+1);
+      players.push({ index:i, color: PALETTE[i].hex, name: displayName, alive:true, isAI, isLocal: i===LOCAL_PLAYER_INDEX && !isAI });
     }
 
     sizeCanvas();
@@ -862,6 +1227,7 @@
     contactPairs.clear();
 
     buildLegend();
+    updateDynamicTexts();
     updateTurnHUD();
     maybeRunAI();
 
@@ -905,7 +1271,9 @@
   function placeStones(){
     stones = [];
     const r = boardRadius * STONE_RADIUS_RATIO;
-    const safeR = boardRadius - r - boardRadius*0.04;
+    const map = MAPS[selectedMap] || MAPS.classic;
+    const playR = boardRadius * (map.sizeScale || 1);
+    const safeR = playR - r - boardRadius*0.04;
 
     const assignments = [];
     for(let p=0;p<playerCount;p++){ for(let c=0;c<stonesPerPlayer;c++) assignments.push(p); }
@@ -957,7 +1325,7 @@
       const chip = document.getElementById('legend-'+p.index);
       if(!chip) return;
       const count = stoneCountFor(p.index);
-      chip.innerHTML = '<span class="avatar" style="background:'+p.color+'">'+(p.isAI?'AI':(p.index+1))+'</span><span class="stoneBadge">'+count+'</span>';
+      chip.innerHTML = '<span class="avatar" style="background:'+p.color+'">'+(p.isAI?t('ai'):(matchIsBattle && p.isLocal ? (p.name||account.nickname).slice(0,1) : (p.index+1)))+'</span><span class="playerNameMini">'+(p.name||playerLabel(p.index+1))+'</span><span class="stoneBadge">'+count+'</span>';
       chip.classList.toggle('out', !p.alive);
       chip.classList.toggle('active', p.index === activeIndex && p.alive);
     });
@@ -965,8 +1333,13 @@
 
   function updateTurnHUD(){
     const p = players[turnOrder[currentTurn]];
+    if(!p) return;
+    if(matchIsBattle && p.isLocal && !p.isAI) p.name=account.nickname;
+    else if(!p.name) p.name=playerLabel(p.index+1);
     document.getElementById('turnDot').style.background = p.color;
-    document.getElementById('turnText').textContent = p.name + (p.isAI ? ' (AI) 차례' : ' 차례');
+    document.getElementById('turnText').textContent = (p.name||playerLabel(p.index+1)) + (p.isAI ? ' ('+t('ai')+') ' + t('turn') : ' ' + t('turn')) + ' · ' + mapLabel(selectedMap);
+    const mt=document.getElementById('matchTypeText'); if(mt) mt.textContent=matchIsBattle?t('battle'):t('practice');
+    const mi=document.getElementById('mapInfoText'); if(mi) mi.textContent=mapLabel(selectedMap);
     updateLegend();
   }
 
@@ -988,38 +1361,40 @@
   }
 
   function endGame(){
+    if(phase==='gameover' || matchSettled) return;
     phase = 'gameover';
+    matchSettled = true;
     const winner = players.find(p=>p.alive);
     const overlay = document.getElementById('winOverlay');
-    const coinResText = document.getElementById('coinResultText');
-
     document.getElementById('winDot').style.background = winner ? winner.color : '#999';
     document.getElementById('winDot').style.color = winner ? winner.color : '#999';
-    document.getElementById('winText').textContent = winner ? (winner.name + ' 승리!') : '무승부';
-
-    if(matchIsBattle){
-      coinResText.classList.remove('hidden', 'gain', 'loss');
-      if(winner && winner.index === 0){
-        const reward = 50 * matchStakeOpponents;
-        account.coins += reward;
-        coinResText.textContent = `대전 승리 보상 +${reward} 코인!`;
-        coinResText.classList.add('gain');
-      } else {
-        const loss = Math.min(account.coins, 30);
-        account.coins -= loss;
-        coinResText.textContent = `대전 패배 -${loss} 코인`;
-        coinResText.classList.add('loss');
-      }
-      saveAccount();
+    const local=getLocalBattlePlayer();
+    const localLost=!!(matchIsBattle && local && !local.isAI && (!winner || winner.index!==LOCAL_PLAYER_INDEX));
+    document.getElementById('winText').textContent = localLost ? t('battle.defeat') : (winner ? ((winner.name||playerLabel(winner.index+1)) + ' ' + t('win')) : t('draw'));
+    const finishedEl=document.querySelector('#winOverlay > p[data-i18n="game.finished"]');
+    if(finishedEl) finishedEl.textContent=localLost ? t('battle.defeatDetail') : t('game.finished');
+    const resultBtn=document.getElementById('playAgainBtn');
+    if(resultBtn){ resultBtn.textContent=localLost ? t('battle.confirm') : t('common.playAgain'); resultBtn.dataset.resultMode=localLost ? 'defeat' : 'again'; }
+    const resultEl=document.getElementById('coinResultText');
+    const detailEl=document.getElementById('coinDetail');
+    resultEl.className='hidden'; detailEl.textContent='';
+    if(matchIsBattle && winner && players.some(p=>p.index===LOCAL_PLAYER_INDEX && !p.isAI && p.alive)){
+      const won = winner.index===LOCAL_PLAYER_INDEX;
+      const amount = won ? Math.max(10,matchStakeOpponents*10) : 5;
+      account.coins = Math.max(0, account.coins + (won ? amount : -amount));
+      resultEl.textContent = won ? t('coinWin',{n:amount}) : t('coinLose',{n:amount});
+      resultEl.className = won ? 'gain' : 'loss';
+      detailEl.textContent = won ? t('coinDetailWin',{n:matchStakeOpponents}) : t('coinDetailLose');
       renderAccountUI();
-    } else {
-      coinResText.classList.add('hidden');
+      markAccountChanged();
     }
-
     overlay.style.display = 'flex';
     sWin();
   }
 
+  // ---------------------------------------------------------------
+  // Input (pointer events)
+  // ---------------------------------------------------------------
   function getCanvasPos(e){
     const rect = canvas.getBoundingClientRect();
     return { x: (e.clientX-rect.left) * (parseFloat(canvas.style.width)/rect.width),
@@ -1029,7 +1404,9 @@
   function onPointerDown(e){
     if(phase !== 'waiting') return;
     const activePlayerIndex = turnOrder[currentTurn];
-    if(players[activePlayerIndex].isAI) return;
+    if(activePlayerIndex !== LOCAL_PLAYER_INDEX) return; // Only the local player's stones are controllable.
+    const localPlayer=players[LOCAL_PLAYER_INDEX];
+    if(!localPlayer || localPlayer.isAI) return;
 
     const pos = getCanvasPos(e);
     const grabMult = e.pointerType === 'touch' ? 3.0 : 2.2;
@@ -1042,10 +1419,9 @@
     if(best){
       drag = { anchorX: best.x, anchorY: best.y, curX: pos.x, curY: pos.y, stone: best };
       phase = 'dragging';
-      try { canvas.setPointerCapture(e.pointerId); } catch(err){}
+      canvas.setPointerCapture(e.pointerId);
     }
   }
-
   let lastPullSound = 0;
   function onPointerMove(e){
     if(phase !== 'dragging' || !drag) return;
@@ -1065,7 +1441,6 @@
       lastPullSound = now;
     }
   }
-
   function releaseDrag(d){
     const maxPull = boardRadius * MAX_PULL_RATIO;
     const dx = d.curX - d.anchorX, dy = d.curY - d.anchorY;
@@ -1077,6 +1452,9 @@
       const speed = power * MAX_LAUNCH_SPEED * boardRadius;
       d.stone.vx = nx*speed;
       d.stone.vy = ny*speed;
+      shotStats = {knocks:0, hits:0};
+      shotIsHuman = !!(players[d.stone.playerIndex] && !players[d.stone.playerIndex].isAI);
+      shotNumber++;
       sLaunch(power);
       phase = 'settling';
     } else {
@@ -1090,6 +1468,9 @@
     drag = null;
   }
 
+  // ---------------------------------------------------------------
+  // AI
+  // ---------------------------------------------------------------
   function maybeRunAI(){
     if(phase !== 'waiting') return;
     const activePlayerIndex = turnOrder[currentTurn];
@@ -1111,6 +1492,7 @@
     const diff = AI_DIFFICULTY[aiDifficulty] || AI_DIFFICULTY.normal;
     let stone, target;
     if(Math.random() < diff.bestShotChance){
+      // pick the own-stone/enemy-stone pair with the clearest (closest) shot
       let bestDist = Infinity;
       own.forEach(o=>{
         enemies.forEach(en=>{
@@ -1131,7 +1513,7 @@
 
     const dist = Math.hypot(target.x-stone.x, target.y-stone.y);
     let angle = Math.atan2(target.y-stone.y, target.x-stone.x);
-    angle += (Math.random()-0.5) * diff.angleNoise;
+    angle += (Math.random()-0.5) * diff.angleNoise; // aim imperfection, scaled by difficulty
 
     let power = 0.55 + dist/(boardRadius*2.2);
     power += (Math.random()-0.5) * diff.powerJitter;
@@ -1171,92 +1553,237 @@
   }
 
   function bindCanvasEvents(){
-    if(!canvas) return;
     canvas.addEventListener('pointerdown', onPointerDown);
     canvas.addEventListener('pointermove', onPointerMove);
     canvas.addEventListener('pointerup', onPointerUp);
     canvas.addEventListener('pointercancel', onPointerUp);
   }
 
+  // ---------------------------------------------------------------
+  // Physics
+  // ---------------------------------------------------------------
   function stepPhysics(dt){
-    const decay = Math.exp(-FRICTION_K*dt);
+    // 작은 시간 간격으로 나눠 계산하면 빠른 발사에서도 알이 서로 통과하는
+    // 현상(터널링)이 줄어들고 충돌이 훨씬 안정적이다.
+    const subSteps = Math.max(1, Math.ceil(dt / 0.008));
+    const h = (dt * slowMo) / subSteps;
+    const map = MAPS[selectedMap] || MAPS.classic;
     let anyMoving = false;
 
-    stones.forEach(s=>{
-      if(!s.alive) return;
-      s.x += s.vx*dt;
-      s.y += s.vy*dt;
-      s.vx *= decay;
-      s.vy *= decay;
-      if(Math.hypot(s.vx,s.vy) < STOP_SPEED){ s.vx = 0; s.vy = 0; }
-      else anyMoving = true;
-    });
+    for(let step=0; step<subSteps; step++){
+      const decay = Math.exp(-map.friction*h);
 
-    for(let i=0;i<stones.length;i++){
-      const a = stones[i];
-      if(!a.alive) continue;
-      for(let j=i+1;j<stones.length;j++){
-        const b = stones[j];
-        if(!b.alive) continue;
-        const dx = b.x-a.x, dy = b.y-a.y;
-        const dist = Math.hypot(dx,dy) || 0.0001;
-        const minDist = a.r+b.r;
-        const key = i+'-'+j;
-        if(dist < minDist){
-          const nx = dx/dist, ny = dy/dist;
-          const rvx = b.vx-a.vx, rvy = b.vy-a.vy;
-          const velAlongNormal = rvx*nx + rvy*ny;
-          if(velAlongNormal < 0){
-            a.vx += nx*velAlongNormal;
-            a.vy += ny*velAlongNormal;
-            b.vx -= nx*velAlongNormal;
-            b.vy -= ny*velAlongNormal;
-            if(!contactPairs.has(key)){
-              contactPairs.add(key);
-              sCollide(Math.min(1, Math.abs(velAlongNormal)/(boardRadius*1.2)));
+      stones.forEach(s=>{
+        if(!s.alive || s.fallProgress>0) return;
+        s.x += s.vx*h;
+        s.y += s.vy*h;
+        s.vx *= decay;
+        s.vy *= decay;
+        const sp = Math.hypot(s.vx,s.vy);
+        if(sp < STOP_SPEED){ s.vx=0; s.vy=0; }
+        else anyMoving = true;
+      });
+
+      // stone vs stone: equal-mass elastic-ish collision + tiny tangential transfer
+      for(let i=0;i<stones.length;i++){
+        const a=stones[i];
+        if(!a.alive || a.fallProgress>0) continue;
+        for(let j=i+1;j<stones.length;j++){
+          const b=stones[j];
+          if(!b.alive || b.fallProgress>0) continue;
+          const dx=b.x-a.x, dy=b.y-a.y;
+          const dist=Math.hypot(dx,dy)||0.0001;
+          const minDist=a.r+b.r;
+          const key=i+'-'+j;
+          if(dist < minDist){
+            const nx=dx/dist, ny=dy/dist;
+            const rvx=b.vx-a.vx, rvy=b.vy-a.vy;
+            const velAlongNormal=rvx*nx+rvy*ny;
+            if(velAlongNormal < 0){
+              const impact=Math.min(1,Math.abs(velAlongNormal)/(boardRadius*0.95));
+              const impulse=-(1+map.restitution)*velAlongNormal/2;
+              a.vx-=impulse*nx; a.vy-=impulse*ny;
+              b.vx+=impulse*nx; b.vy+=impulse*ny;
+
+              const tangent=-rvx*ny+rvy*nx;
+              const tangentialKick=tangent*0.025*impact;
+              a.vx+=-ny*tangentialKick; a.vy+=nx*tangentialKick;
+              b.vx-=-ny*tangentialKick; b.vy-=nx*tangentialKick;
+
+              if(!contactPairs.has(key)){
+                contactPairs.add(key);
+                shotStats.hits++;
+                sCollide(impact);
+                if(matchIsBattle && shotIsHuman && impact>0.18) addHitEffect((a.x+b.x)/2,(a.y+b.y)/2,impact);
+              }
             }
+            // positional correction with a tiny bias toward the stationary stone
+            const correction=(minDist-dist)*0.52;
+            a.x-=nx*correction; a.y-=ny*correction;
+            b.x+=nx*correction; b.y+=ny*correction;
+            anyMoving=true;
+          }else if(dist>minDist*1.18){
+            contactPairs.delete(key);
           }
-          const overlap = (minDist-dist)/2;
-          a.x -= nx*overlap; a.y -= ny*overlap;
-          b.x += nx*overlap; b.y += ny*overlap;
-          anyMoving = true;
-        } else if(dist > minDist*1.15){
-          contactPairs.delete(key);
         }
       }
+
+      // Map boundary / special maps
+      stones.forEach(s=>{
+        if(!s.alive) return;
+        const d=Math.hypot(s.x-boardCenter.x,s.y-boardCenter.y);
+
+        const edgeRadius = map.sizeScale<1 ? boardRadius*map.sizeScale : boardRadius;
+        if(map.sizeScale<1 && d>edgeRadius-s.r*0.9 && d<=edgeRadius+s.r*0.5 && s.fallProgress===0){
+          const nx=(s.x-boardCenter.x)/(d||1), ny=(s.y-boardCenter.y)/(d||1);
+          const outward=s.vx*nx+s.vy*ny;
+          const breakThrough=outward > boardRadius*0.82;
+          if(outward>0 && !breakThrough){
+            s.x=boardCenter.x+nx*(edgeRadius-s.r*0.92);
+            s.y=boardCenter.y+ny*(edgeRadius-s.r*0.92);
+            s.vx-=1.82*outward*nx; s.vy-=1.82*outward*ny;
+            if(matchIsBattle && shotIsHuman) addHitEffect(s.x,s.y,Math.min(1,Math.abs(outward)/(boardRadius*.9)));
+          }
+        }
+        if(map.bumper && d>boardRadius-s.r*1.05 && d<=boardRadius+s.r*0.35 && s.fallProgress===0){
+          const nx=(s.x-boardCenter.x)/(d||1), ny=(s.y-boardCenter.y)/(d||1);
+          const outward=s.vx*nx+s.vy*ny;
+          const breakThrough=outward > boardRadius*0.88;
+          if(outward>0 && !breakThrough){
+            s.x=boardCenter.x+nx*(boardRadius-s.r*1.05);
+            s.y=boardCenter.y+ny*(boardRadius-s.r*1.05);
+            s.vx-=1.75*outward*nx;
+            s.vy-=1.75*outward*ny;
+            if(matchIsBattle && shotIsHuman) addHitEffect(s.x,s.y,Math.min(1,Math.abs(outward)/(boardRadius*.9)));
+          }
+        }
+
+        const playableEdge = map.sizeScale<1 ? boardRadius*map.sizeScale : boardRadius;
+        if(d>playableEdge-s.r*0.15 && s.fallProgress===0){
+          s.fallProgress=0.0001;
+          s.fallVx=s.vx; s.fallVy=s.vy;
+          sFall();
+        }
+        if(s.fallProgress>0){
+          s.fallProgress+=h*2.35;
+          s.x+=s.fallVx*h*0.5;
+          s.y+=s.fallVy*h*0.5;
+          if(s.fallProgress>=1){
+            s.alive=false;
+            shotStats.knocks++;
+            const stillHasStones=stones.some(o=>o.playerIndex===s.playerIndex&&o.alive);
+            if(!stillHasStones) players[s.playerIndex].alive=false;
+            if(matchIsBattle && shotIsHuman) addKnockEffect(s.x,s.y,shotStats.knocks);
+            updateLegend();
+          }
+          anyMoving=true;
+        }
+      });
     }
 
-    stones.forEach(s=>{
-      if(!s.alive) return;
-      const d = Math.hypot(s.x-boardCenter.x, s.y-boardCenter.y);
-      if(d > boardRadius - s.r*0.15 && s.fallProgress === 0){
-        s.fallProgress = 0.0001;
-        s.fallVx = s.vx; s.fallVy = s.vy;
-        sFall();
-      }
-      if(s.fallProgress > 0){
-        s.fallProgress += dt*2.2;
-        s.x += s.fallVx*dt*0.5;
-        s.y += s.fallVy*dt*0.5;
-        if(s.fallProgress >= 1){
-          s.alive = false;
-          const stillHasStones = stones.some(o=>o.playerIndex===s.playerIndex && o.alive);
-          if(!stillHasStones){ players[s.playerIndex].alive = false; }
-          updateLegend();
-        }
-        anyMoving = true;
-      }
-    });
-
-    if(!anyMoving && phase === 'settling'){
+    if(!anyMoving && phase==='settling'){
+      finishShotEffects();
+      shotIsHuman = false;
       nextTurn();
     }
   }
 
+  // ---------------------------------------------------------------
+  // Battle-only hit effects
+  // ---------------------------------------------------------------
+  function addHitEffect(x,y,power){
+    if(!matchIsBattle || !shotIsHuman) return;
+    screenShake=Math.max(screenShake,2.5+power*8);
+    slowMo=Math.min(slowMo, power>.7 ? .58 : .72);
+    effects.push({type:'burst',x,y,life:0,maxLife:.34,power,particles:Array.from({length:Math.round(8+power*10)},()=>{
+      const a=Math.random()*Math.PI*2, sp=(45+Math.random()*130)*power;
+      return {a,sp,r:2+Math.random()*3};
+    })});
+    effects.push({type:'ring',x,y,life:0,maxLife:.28,power});
+    effects.push({type:'text',x,y:y-boardRadius*.035,text:power>.72?t('effect.perfect'):t('effect.hit'),life:0,maxLife:.5,power});
+  }
+
+  function addKnockEffect(x,y,count){
+    if(!matchIsBattle || !shotIsHuman) return;
+    const names=[t('effect.ko'),t('effect.double'),t('effect.triple'),t('effect.mega')];
+    const label=names[Math.min(count-1,names.length-1)];
+    effects.push({type:'text',x,y:y-boardRadius*.08,text:label,life:0,maxLife:.9,power:Math.min(1,.55+count*.15),big:true});
+    screenShake=Math.max(screenShake,5+count*2);
+    slowMo=Math.min(slowMo,count>=2?.48:.65);
+  }
+
+  function finishShotEffects(){
+    if(!matchIsBattle || !shotIsHuman) return;
+    if(shotStats.knocks>=2){
+      const bonus=shotStats.knocks>=3?1.2:0.7;
+      effects.push({type:'combo',x:boardCenter.x,y:boardCenter.y-boardRadius*.42,life:0,maxLife:1.05,count:shotStats.knocks,bonus});
+      slowMo=.42;
+      screenShake=Math.max(screenShake,9+shotStats.knocks*2);
+    }
+  }
+
+  function updateEffects(dt){
+    slowMo+=(1-slowMo)*Math.min(1,dt*10);
+    screenShake*=Math.max(0,1-dt*12);
+    effects.forEach(e=>e.life+=dt);
+    effects=effects.filter(e=>e.life<e.maxLife);
+  }
+
+  function drawEffects(){
+    if(!matchIsBattle) return;
+    effects.forEach(e=>{
+      const t=e.life/e.maxLife;
+      if(e.type==='burst'){
+        e.particles.forEach(p=>{
+          const d=p.sp*e.life;
+          const x=e.x+Math.cos(p.a)*d, y=e.y+Math.sin(p.a)*d;
+          ctx.globalAlpha=Math.max(0,1-t);
+          ctx.beginPath(); ctx.arc(x,y,p.r*(1-t*.4),0,Math.PI*2);
+          ctx.fillStyle='#f2e9dc'; ctx.fill();
+        });
+      }else if(e.type==='ring'){
+        ctx.globalAlpha=Math.max(0,1-t);
+        ctx.beginPath(); ctx.arc(e.x,e.y,e.power*boardRadius*.06+t*boardRadius*.12,0,Math.PI*2);
+        ctx.strokeStyle='#d9a441'; ctx.lineWidth=3+e.power*3; ctx.stroke();
+      }else if(e.type==='text'){
+        const rise=t*boardRadius*(e.big?.22:.16);
+        const scale=e.big ? 1+Math.sin(Math.min(1,t*5))*0.08 : 1;
+        ctx.save();
+        ctx.translate(e.x,e.y-rise); ctx.scale(scale,scale);
+        ctx.globalAlpha=Math.max(0,1-t*1.15);
+        ctx.font=(e.big?'900 ':'700 ')+Math.round((e.big?22:13)+e.power*(e.big?12:8))+"px 'Jua', sans-serif";
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.lineWidth=e.big?5:3; ctx.strokeStyle='rgba(0,0,0,.65)'; ctx.strokeText(e.text,0,0);
+        ctx.fillStyle=e.big?'#ffd86a':'#f2e9dc'; ctx.fillText(e.text,0,0);
+        ctx.restore();
+      }else if(e.type==='combo'){
+        const pop=t<.2 ? t/.2 : 1;
+        const fade=t>.7 ? (1-t)/.3 : 1;
+        ctx.save();
+        ctx.translate(e.x,e.y);
+        ctx.scale(.8+pop*.25,.8+pop*.25);
+        ctx.globalAlpha=Math.max(0,fade);
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font="900 "+Math.round(26+e.count*7)+"px 'Jua', sans-serif";
+        ctx.lineWidth=7; ctx.strokeStyle='rgba(0,0,0,.7)';
+        ctx.strokeText(e.count+' COMBO',0,0);
+        ctx.fillStyle='#ffd86a'; ctx.fillText(e.count+' COMBO',0,0);
+        ctx.font="700 14px 'Noto Sans KR',sans-serif";
+        ctx.fillStyle='#f2e9dc'; ctx.fillText(e.count>=3?t('effect.combo3'):t('effect.combo2'),0,30);
+        ctx.restore();
+      }
+    });
+    ctx.globalAlpha=1;
+  }
+
+  // ---------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------
   function drawBoard(){
     const cw = parseFloat(canvas.style.width), ch = parseFloat(canvas.style.height);
     ctx.clearRect(0,0,cw,ch);
 
+    // outer shadow
     ctx.save();
     ctx.beginPath();
     ctx.arc(boardCenter.x, boardCenter.y+boardRadius*0.05, boardRadius*1.02, 0, Math.PI*2);
@@ -1265,6 +1792,7 @@
     ctx.fill();
     ctx.restore();
 
+    // rim
     const rimGrad = ctx.createRadialGradient(
       boardCenter.x, boardCenter.y, boardRadius*0.7,
       boardCenter.x, boardCenter.y, boardRadius*1.05
@@ -1276,18 +1804,25 @@
     ctx.fillStyle = rimGrad;
     ctx.fill();
 
+    // inner face
+    const currentMap = MAPS[selectedMap] || MAPS.classic;
     const faceGrad = ctx.createRadialGradient(
       boardCenter.x - boardRadius*0.25, boardCenter.y - boardRadius*0.3, boardRadius*0.1,
       boardCenter.x, boardCenter.y, boardRadius
     );
-    faceGrad.addColorStop(0, '#7c5030');
-    faceGrad.addColorStop(0.7, '#6b4226');
-    faceGrad.addColorStop(1, '#583417');
+    if(selectedMap==='ice'){
+      faceGrad.addColorStop(0, '#8b9aa0'); faceGrad.addColorStop(0.7, '#60757c'); faceGrad.addColorStop(1, '#3e555d');
+    } else if(selectedMap==='bumper'){
+      faceGrad.addColorStop(0, '#815b35'); faceGrad.addColorStop(0.7, '#6b4226'); faceGrad.addColorStop(1, '#4f2f18');
+    } else {
+      faceGrad.addColorStop(0, '#7c5030'); faceGrad.addColorStop(0.7, '#6b4226'); faceGrad.addColorStop(1, '#583417');
+    }
     ctx.beginPath();
     ctx.arc(boardCenter.x, boardCenter.y, boardRadius, 0, Math.PI*2);
     ctx.fillStyle = faceGrad;
     ctx.fill();
 
+    // subtle wood grain rings
     ctx.save();
     ctx.clip();
     ctx.strokeStyle = 'rgba(0,0,0,0.10)';
@@ -1299,17 +1834,44 @@
     }
     ctx.restore();
 
+    // center emblem ring
     ctx.beginPath();
     ctx.arc(boardCenter.x, boardCenter.y, boardRadius*0.16, 0, Math.PI*2);
     ctx.strokeStyle = 'rgba(242,233,220,0.12)';
     ctx.lineWidth = 3;
     ctx.stroke();
 
+    // inner edge highlight
     ctx.beginPath();
     ctx.arc(boardCenter.x, boardCenter.y, boardRadius*0.985, 0, Math.PI*2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.strokeStyle = selectedMap==='ice' ? 'rgba(220,245,255,0.18)' : 'rgba(255,255,255,0.06)';
     ctx.lineWidth = 4;
     ctx.stroke();
+    if(selectedMap==='ice'){
+      ctx.save(); ctx.globalAlpha=.16; ctx.strokeStyle='#eefaff'; ctx.lineWidth=2;
+      for(let i=-3;i<=3;i++){
+        ctx.beginPath(); ctx.moveTo(boardCenter.x-boardRadius,boardCenter.y+i*boardRadius*.22); ctx.lineTo(boardCenter.x+boardRadius,boardCenter.y+(i+.8)*boardRadius*.22); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    if(selectedMap==='bumper'){
+      ctx.beginPath(); ctx.arc(boardCenter.x,boardCenter.y,boardRadius*.975,0,Math.PI*2);
+      ctx.strokeStyle='#d9a441'; ctx.lineWidth=Math.max(8,boardRadius*.055); ctx.stroke();
+      ctx.beginPath(); ctx.arc(boardCenter.x,boardCenter.y,boardRadius*.94,0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,255,255,.12)'; ctx.lineWidth=2; ctx.stroke();
+    }
+    if(selectedMap==='tiny'){
+      ctx.beginPath(); ctx.arc(boardCenter.x,boardCenter.y,boardRadius*.86,0,Math.PI*2);
+      ctx.strokeStyle='rgba(217,164,65,.5)'; ctx.lineWidth=3; ctx.setLineDash([8,7]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if(selectedMap==='sand'){
+      ctx.save(); ctx.globalAlpha=.11; ctx.fillStyle='#e8c98d';
+      for(let i=0;i<90;i++){
+        const a=i*2.399, rr=Math.sqrt((i*37)%100)/10*boardRadius*.9;
+        ctx.beginPath(); ctx.arc(boardCenter.x+Math.cos(a)*rr,boardCenter.y+Math.sin(a)*rr,1.2+(i%3),0,Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
   }
 
   function drawStones(){
@@ -1322,22 +1884,26 @@
       ctx.translate(s.x, s.y);
       ctx.scale(scale, scale);
 
+      // contact shadow (tight, flat — a disc sitting on the board, not a floating ball)
       ctx.beginPath();
       ctx.ellipse(s.r*0.08, s.r*0.14, s.r*0.98, s.r*0.86, 0, 0, Math.PI*2);
       ctx.fillStyle = 'rgba(0,0,0,0.4)';
       ctx.fill();
 
+      // outer rim — the thin edge/lip of the stone (slightly darker than the face)
       ctx.beginPath();
       ctx.arc(0,0,s.r,0,Math.PI*2);
       ctx.fillStyle = darken(s.color, 30);
       ctx.fill();
 
+      // flat top face, slightly inset — matte, not glossy
       const faceR = s.r*0.9;
       ctx.beginPath();
       ctx.arc(0,0,faceR,0,Math.PI*2);
       ctx.fillStyle = s.color;
       ctx.fill();
 
+      // soft directional sheen — a small, low-opacity highlight rather than a full sphere gradient
       ctx.save();
       ctx.clip();
       ctx.beginPath();
@@ -1350,12 +1916,14 @@
       ctx.fill();
       ctx.restore();
 
+      // hairline rim stroke for edge definition
       ctx.beginPath();
       ctx.arc(0,0,s.r*0.985,0,Math.PI*2);
       ctx.lineWidth = Math.max(1, s.r*0.05);
       ctx.strokeStyle = 'rgba(0,0,0,0.3)';
       ctx.stroke();
 
+      // active-turn glow ring
       const activeIndex = turnOrder[currentTurn];
       if(s.playerIndex === activeIndex && (phase==='waiting'||phase==='dragging') && s.alive){
         ctx.beginPath();
@@ -1385,6 +1953,7 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
+    // launch direction arrow (opposite of pull)
     const nx = -dx/(dist||1), ny = -dy/(dist||1);
     const arrowLen = drag.stone.r*1.6 + power*boardRadius*0.3;
     const ax = drag.anchorX + nx*arrowLen, ay = drag.anchorY + ny*arrowLen;
@@ -1394,7 +1963,7 @@
     ctx.strokeStyle = `rgba(217,164,65,${0.4+power*0.6})`;
     ctx.lineWidth = 3 + power*4;
     ctx.stroke();
-
+    // arrow head
     const headAng = Math.atan2(ny,nx);
     ctx.beginPath();
     ctx.moveTo(ax, ay);
@@ -1406,6 +1975,7 @@
     ctx.restore();
   }
 
+  function lighten(hex, amt){ return shade(hex, amt); }
   function darken(hex, amt){ return shade(hex, -amt); }
   function shade(hex, amt){
     const c = hex.replace('#','');
@@ -1415,6 +1985,9 @@
     return '#' + (r<<16 | g<<8 | b).toString(16).padStart(6,'0');
   }
 
+  // ---------------------------------------------------------------
+  // Main loop
+  // ---------------------------------------------------------------
   let rafRunning = false;
   function loop(t){
     const dt = Math.min(0.032, (t-lastTime)/1000 || 0);
@@ -1423,16 +1996,27 @@
     if(phase === 'settling'){
       stepPhysics(dt);
     }
+    updateEffects(dt);
 
     if(canvas){
+      ctx.save();
+      if(matchIsBattle && screenShake>0.2){
+        const sx=(Math.random()-.5)*screenShake, sy=(Math.random()-.5)*screenShake;
+        ctx.translate(sx,sy);
+      }
       drawBoard();
       drawStones();
       drawDrag();
+      drawEffects();
+      ctx.restore();
     }
 
     requestAnimationFrame(loop);
   }
 
+  // ---------------------------------------------------------------
+  // Resize
+  // ---------------------------------------------------------------
   let resizeTimer;
   function scheduleResize(){
     if(phase === 'setup') return;
@@ -1445,16 +2029,31 @@
     window.visualViewport.addEventListener('resize', scheduleResize);
   }
 
+  // bind canvas events once DOM canvas exists (it exists from the start, hidden)
   document.addEventListener('DOMContentLoaded', ()=>{
     canvas = document.getElementById('board');
     ctx = canvas.getContext('2d');
     bindCanvasEvents();
   });
+  // in case DOMContentLoaded already fired
   if(document.readyState !== 'loading'){
     canvas = document.getElementById('board');
     ctx = canvas.getContext('2d');
     bindCanvasEvents();
   }
+
+  window.addEventListener('pagehide', ()=>{
+    stopGameMusic();
+    if(accountSaveQueued){
+      try{ localStorage.setItem('alkkagi_account', JSON.stringify(account)); }catch(e){}
+    }
+  });
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){
+      if(accountSaveQueued) requestAccountSave(true);
+      if(phase!=='waiting' && phase!=='dragging' && phase!=='settling') stopGameMusic();
+    }
+  });
 
 })();
 </script>
