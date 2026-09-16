@@ -1,0 +1,8 @@
+{
+  "name": "alkkagi-online",
+  "version": "1.0.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "ws": "^8.18.3" }
+}
