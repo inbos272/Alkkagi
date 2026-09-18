@@ -1,248 +1,770 @@
-// ============================================================
-// 알까기 온라인 서버
-// - package.json 의존성: "ws" 하나만 사용 (가볍게, Render 무료 플랜에 적합)
-// - 서버는 "방장(host) 클라이언트가 물리 연산을 하고, 서버는 방을 만들고
-//   메시지를 방 안의 다른 사람들에게 그대로 전달(relay)"하는 구조입니다.
-//   → 서버가 물리 엔진을 돌리지 않아 CPU 부담이 거의 없고, 클라이언트 로직을
-//     그대로 재사용할 수 있어 안정적입니다.
-// ============================================================
-
-const { WebSocketServer } = require('ws');
-const http = require('http');
+const http = require("http");
+const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 8080;
 
-// 헬스체크용 HTTP 서버 (Render는 HTTP 응답이 있어야 "살아있다"고 판단합니다)
-const httpServer = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('Alkkagi WebSocket server is running.\n');
+// =========================
+// HTTP 서버
+// =========================
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/plain; charset=utf-8",
+  });
+
+  res.end("Alkkagi WebSocket Server is running!");
 });
 
-const wss = new WebSocketServer({ server: httpServer });
+// =========================
+// WebSocket 서버
+// =========================
 
-// --------------------------------------------------------------
-// 상태
-// --------------------------------------------------------------
+const wss = new WebSocketServer({ server });
+
+// =========================
+// 데이터
+// =========================
+
 let nextClientId = 1;
-let nextRoomId = 1;
 
-/** clientId -> { ws, name, roomId } */
 const clients = new Map();
-
-/** queueKey(`${playerCount}:${map}`) -> [clientId, ...] 대기열 */
 const queues = new Map();
-
-/** roomId -> { id, map, playerCount, stoneCount, players:[clientId,...], hostId, alive:Set } */
 const rooms = new Map();
 
-function send(ws, obj) {
-  if (ws && ws.readyState === ws.OPEN) {
-    ws.send(JSON.stringify(obj));
+// 사용 중인 닉네임
+const usedNames = new Map();
+
+// =========================
+// 닉네임
+// =========================
+
+const NAME_POOL = [
+  "알까기왕",
+  "돌격알",
+  "알까기초보",
+  "검은돌",
+  "흰돌",
+  "돌멩이",
+  "알까기마스터",
+  "한방알",
+  "돌돌이",
+  "알신",
+  "스톤맨",
+  "알까기고수",
+  "쓱쓱이",
+  "통통알",
+  "돌격대",
+  "알까기장인",
+  "스톤킹",
+  "알파돌",
+  "빨간알",
+  "파란알",
+  "초록알",
+  "보라알",
+  "황금알",
+  "무적알",
+  "행운의알",
+  "알폭탄",
+  "돌의신",
+  "슈퍼알",
+  "알까기전사",
+  "스톤히어로",
+];
+
+function randomName() {
+  const available = NAME_POOL.filter(
+    (name) => !usedNames.has(name)
+  );
+
+  if (available.length > 0) {
+    return available[
+      Math.floor(Math.random() * available.length)
+    ];
   }
-}
 
-function broadcastRoom(room, obj, exceptId = null) {
-  for (const cid of room.players) {
-    if (cid === exceptId) continue;
-    const c = clients.get(cid);
-    if (c) send(c.ws, obj);
+  // 기본 이름 풀이 모두 사용된 경우
+  let i = 1;
+
+  while (usedNames.has(`손님${i}`)) {
+    i++;
   }
+
+  return `손님${i}`;
 }
 
-function queueKey(playerCount, map) {
-  return `${playerCount}:${map}`;
-}
-
-function removeFromAllQueues(clientId) {
-  for (const [key, list] of queues) {
-    const idx = list.indexOf(clientId);
-    if (idx !== -1) list.splice(idx, 1);
-    if (list.length === 0) queues.delete(key);
+function setClientName(client, name) {
+  if (typeof name !== "string") {
+    return false;
   }
+
+  name = name.trim();
+
+  if (name.length < 1 || name.length > 12) {
+    return false;
+  }
+
+  // 허용 문자
+  if (!/^[가-힣a-zA-Z0-9 _-]+$/.test(name)) {
+    return false;
+  }
+
+  const oldName = client.name;
+
+  // 같은 이름이면 변경할 필요 없음
+  if (oldName === name) {
+    return true;
+  }
+
+  // 다른 사람이 사용 중
+  if (usedNames.has(name)) {
+    send(client.ws, {
+      type: "name_taken",
+      name,
+    });
+
+    return false;
+  }
+
+  // 기존 이름 제거
+  if (oldName) {
+    usedNames.delete(oldName);
+  }
+
+  client.name = name;
+  usedNames.set(name, client.id);
+
+  send(client.ws, {
+    type: "name_changed",
+    name,
+  });
+
+  // 방 안의 다른 사람들에게 알림
+  if (client.roomId) {
+    broadcastRoom(client.roomId, {
+      type: "player_name_changed",
+      playerId: client.id,
+      name,
+    });
+  }
+
+  return true;
 }
 
-function leaveRoom(clientId) {
-  const c = clients.get(clientId);
-  if (!c || !c.roomId) return;
-  const room = rooms.get(c.roomId);
-  c.roomId = null;
-  if (!room) return;
+// =========================
+// 유틸
+// =========================
 
-  room.players = room.players.filter((id) => id !== clientId);
-  room.alive.delete(clientId);
-
-  if (room.players.length === 0) {
-    rooms.delete(room.id);
+function send(ws, data) {
+  if (!ws || ws.readyState !== ws.OPEN) {
     return;
   }
 
-  // 방장이 나갔다면 다음 사람에게 방장을 위임합니다.
-  const hostLeft = room.hostId === clientId;
-  if (hostLeft) {
-    room.hostId = room.players[0];
+  try {
+    ws.send(JSON.stringify(data));
+  } catch (err) {
+    console.error("send error:", err);
   }
-
-  broadcastRoom(room, {
-    type: 'player_left',
-    clientId,
-    newHostId: room.hostId,
-  });
 }
 
-// --------------------------------------------------------------
-// 연결 처리
-// --------------------------------------------------------------
-wss.on('connection', (ws) => {
-  const clientId = nextClientId++;
-  clients.set(clientId, { ws, name: `손님${clientId}`, roomId: null });
+function broadcastRoom(roomId, data, exceptId = null) {
+  const room = rooms.get(roomId);
 
-  send(ws, { type: 'welcome', clientId });
+  if (!room) {
+    return;
+  }
 
-  ws.on('message', (raw) => {
+  for (const playerId of room.players) {
+    if (playerId === exceptId) {
+      continue;
+    }
+
+    const client = clients.get(playerId);
+
+    if (client) {
+      send(client.ws, data);
+    }
+  }
+}
+
+function makeRoomId() {
+  return (
+    Date.now().toString(36) +
+    Math.random().toString(36).slice(2, 8)
+  );
+}
+
+// =========================
+// 연결
+// =========================
+
+wss.on("connection", (ws) => {
+  const clientId = String(nextClientId++);
+
+  const client = {
+    id: clientId,
+    ws,
+    name: randomName(),
+    roomId: null,
+    isHost: false,
+  };
+
+  clients.set(clientId, client);
+  usedNames.set(client.name, client.id);
+
+  console.log(
+    `[CONNECT] ${client.id} / ${client.name}`
+  );
+
+  send(ws, {
+    type: "welcome",
+    clientId: client.id,
+    name: client.name,
+  });
+
+  // =========================
+  // 메시지
+  // =========================
+
+  ws.on("message", (raw) => {
     let msg;
+
     try {
       msg = JSON.parse(raw.toString());
-    } catch {
-      return; // 잘못된 메시지는 조용히 무시 (서버가 죽지 않도록)
+    } catch (err) {
+      console.log("Invalid JSON:", raw.toString());
+      return;
     }
 
-    const c = clients.get(clientId);
-    if (!c) return;
+    if (!msg || typeof msg.type !== "string") {
+      return;
+    }
 
-    switch (msg.type) {
-      // ---- 매치메이킹 ----
-      case 'find_match': {
-        const playerCount = Math.min(4, Math.max(2, Number(msg.playerCount) || 2));
-        const map = String(msg.map || 'classic');
-        const stoneCount = Math.min(4, Math.max(1, Number(msg.stoneCount) || 2));
-        if (typeof msg.name === 'string' && msg.name.trim()) {
-          c.name = msg.name.trim().slice(0, 16);
-        }
+    // =========================
+    // 닉네임 변경
+    // =========================
 
-        const key = queueKey(playerCount, map);
-        if (!queues.has(key)) queues.set(key, []);
-        const list = queues.get(key);
-        if (!list.includes(clientId)) list.push(clientId);
+    if (msg.type === "set_name") {
+      setClientName(client, msg.name);
+      return;
+    }
 
-        send(ws, { type: 'searching', playerCount, map });
+    // =========================
+    // 매칭 시작
+    // =========================
 
-        if (list.length >= playerCount) {
-          const memberIds = list.splice(0, playerCount);
-          const roomId = nextRoomId++;
-          const room = {
-            id: roomId,
-            map,
-            playerCount,
-            stoneCount,
-            players: memberIds,
-            hostId: memberIds[0],
-            alive: new Set(memberIds),
-          };
-          rooms.set(roomId, room);
-          if (list.length === 0) queues.delete(key);
+    if (msg.type === "find_match") {
+      findMatch(client, msg);
+      return;
+    }
 
-          memberIds.forEach((id) => {
-            const member = clients.get(id);
-            if (member) member.roomId = roomId;
-          });
+    // =========================
+    // 매칭 취소
+    // =========================
 
-          const rosterFor = () =>
-            memberIds.map((id, idx) => ({
-              clientId: id,
-              index: idx,
-              name: clients.get(id)?.name || `손님${id}`,
-            }));
+    if (msg.type === "cancel_search") {
+      cancelSearch(client);
+      return;
+    }
 
-          memberIds.forEach((id) => {
-            const member = clients.get(id);
-            if (!member) return;
-            send(member.ws, {
-              type: 'match_found',
-              roomId,
-              map,
-              stoneCount,
-              you: id,
-              hostId: room.hostId,
-              isHost: room.hostId === id,
-              players: rosterFor(),
-            });
-          });
-        }
-        break;
-      }
+    // =========================
+    // 발사
+    // =========================
 
-      case 'cancel_search': {
-        removeFromAllQueues(clientId);
-        send(ws, { type: 'search_cancelled' });
-        break;
-      }
+    if (msg.type === "shoot") {
+      handleShoot(client, msg);
+      return;
+    }
 
-      // ---- 게임 중 릴레이 ----
-      // 참가자가 자기 턴에 스톤을 튕기면(shoot) 서버는 그대로 방장에게 전달합니다.
-      case 'shoot': {
-        if (!c.roomId) return;
-        const room = rooms.get(c.roomId);
-        if (!room) return;
-        const host = clients.get(room.hostId);
-        if (host) {
-          send(host.ws, { type: 'shoot', from: clientId, ...msg });
-        }
-        break;
-      }
+    // =========================
+    // 게임 상태
+    // =========================
 
-      // 방장이 물리 연산 결과(스톤 위치/턴/생존자)를 브로드캐스트합니다.
-      case 'state': {
-        if (!c.roomId) return;
-        const room = rooms.get(c.roomId);
-        if (!room || room.hostId !== clientId) return; // 방장만 상태를 보낼 수 있음
-        broadcastRoom(room, { type: 'state', ...msg }, clientId);
-        break;
-      }
+    if (msg.type === "state") {
+      handleState(client, msg);
+      return;
+    }
 
-      // 게임 종료 알림(방장이 승자를 판정해 브로드캐스트)
-      case 'game_over': {
-        if (!c.roomId) return;
-        const room = rooms.get(c.roomId);
-        if (!room || room.hostId !== clientId) return;
-        broadcastRoom(room, { type: 'game_over', ...msg }, clientId);
-        break;
-      }
+    // =========================
+    // 게임 종료
+    // =========================
 
-      // 채팅/이모트 등 부가 기능 (있으면 그대로 중계)
-      case 'chat': {
-        if (!c.roomId) return;
-        const room = rooms.get(c.roomId);
-        if (!room) return;
-        broadcastRoom(room, { type: 'chat', from: clientId, name: c.name, text: String(msg.text || '').slice(0, 200) });
-        break;
-      }
+    if (msg.type === "game_over") {
+      handleGameOver(client, msg);
+      return;
+    }
 
-      case 'leave_room': {
-        leaveRoom(clientId);
-        break;
-      }
+    // =========================
+    // 채팅
+    // =========================
 
-      case 'ping': {
-        send(ws, { type: 'pong', t: msg.t });
-        break;
-      }
+    if (msg.type === "chat") {
+      handleChat(client, msg);
+      return;
+    }
 
-      default:
-        break;
+    // =========================
+    // 방 나가기
+    // =========================
+
+    if (msg.type === "leave_room") {
+      leaveRoom(client);
+      return;
+    }
+
+    // =========================
+    // 핑
+    // =========================
+
+    if (msg.type === "ping") {
+      send(ws, {
+        type: "pong",
+        time: Date.now(),
+      });
+
+      return;
     }
   });
 
-  ws.on('close', () => {
-    removeFromAllQueues(clientId);
-    leaveRoom(clientId);
-    clients.delete(clientId);
+  // =========================
+  // 연결 종료
+  // =========================
+
+  ws.on("close", () => {
+    console.log(
+      `[DISCONNECT] ${client.id} / ${client.name}`
+    );
+
+    cancelSearch(client);
+    leaveRoom(client);
+
+    usedNames.delete(client.name);
+    clients.delete(client.id);
   });
 
-  ws.on('error', () => {
-    // 연결 오류는 close 이벤트로 이어지므로 별도 처리 불필요
+  ws.on("error", (err) => {
+    console.error(
+      `[WS ERROR] ${client.id}`,
+      err.message
+    );
   });
 });
 
-httpServer.listen(PORT, () => {
-  console.log(`Alkkagi WS server listening on :${PORT}`);
+// =========================
+// 매칭
+// =========================
+
+function findMatch(client, msg) {
+  if (client.roomId) {
+    return;
+  }
+
+  const playerCount = Math.max(
+    2,
+    Math.min(8, Number(msg.playerCount) || 2)
+  );
+
+  const map = String(msg.map || "classic");
+
+  const stoneCount = Math.max(
+    1,
+    Math.min(4, Number(msg.stoneCount) || 1)
+  );
+
+  // 플레이어 수 + 맵 + 알 개수를 모두 매칭 조건으로 사용
+  const queueKey =
+    `${playerCount}:${map}:${stoneCount}`;
+
+  client.searchKey = queueKey;
+
+  if (!queues.has(queueKey)) {
+    queues.set(queueKey, []);
+  }
+
+  const queue = queues.get(queueKey);
+
+  // 중복 등록 방지
+  if (!queue.includes(client.id)) {
+    queue.push(client.id);
+  }
+
+  console.log(
+    `[MATCH] ${client.name} joined queue ${queueKey}`
+  );
+
+  send(client.ws, {
+    type: "searching",
+    playerCount,
+    map,
+    stoneCount,
+    queueSize: queue.length,
+  });
+
+  // 충분한 인원이 모이면 방 생성
+  while (queue.length >= playerCount) {
+    const playerIds = queue.splice(0, playerCount);
+
+    const validPlayers = playerIds.filter(
+      (id) => clients.has(id)
+    );
+
+    if (validPlayers.length < playerCount) {
+      continue;
+    }
+
+    createRoom(
+      validPlayers,
+      playerCount,
+      map,
+      stoneCount
+    );
+  }
+
+  if (queue.length === 0) {
+    queues.delete(queueKey);
+  }
+}
+
+// =========================
+// 매칭 취소
+// =========================
+
+function cancelSearch(client) {
+  const key = client.searchKey;
+
+  if (!key) {
+    return;
+  }
+
+  const queue = queues.get(key);
+
+  if (queue) {
+    const index = queue.indexOf(client.id);
+
+    if (index !== -1) {
+      queue.splice(index, 1);
+    }
+
+    if (queue.length === 0) {
+      queues.delete(key);
+    }
+  }
+
+  client.searchKey = null;
+
+  send(client.ws, {
+    type: "search_cancelled",
+  });
+}
+
+// =========================
+// 방 생성
+// =========================
+
+function createRoom(
+  playerIds,
+  playerCount,
+  map,
+  stoneCount
+) {
+  const roomId = makeRoomId();
+
+  const room = {
+    id: roomId,
+    map,
+    playerCount,
+    stoneCount,
+
+    players: playerIds,
+
+    hostId: playerIds[0],
+
+    alive: playerIds.map(() => true),
+
+    gameStarted: false,
+    gameOver: false,
+  };
+
+  rooms.set(roomId, room);
+
+  console.log(
+    `[ROOM CREATE] ${roomId}`,
+    room.players
+  );
+
+  // 플레이어 정보
+  const playerList = room.players.map(
+    (id, index) => {
+      const p = clients.get(id);
+
+      return {
+        id,
+        index,
+        name: p ? p.name : `Player ${index + 1}`,
+      };
+    }
+  );
+
+  for (let i = 0; i < room.players.length; i++) {
+    const playerId = room.players[i];
+    const player = clients.get(playerId);
+
+    if (!player) {
+      continue;
+    }
+
+    player.roomId = roomId;
+    player.isHost = playerId === room.hostId;
+    player.searchKey = null;
+
+    send(player.ws, {
+      type: "match_found",
+
+      roomId,
+
+      map,
+      playerCount,
+      stoneCount,
+
+      playerIndex: i,
+
+      hostId: room.hostId,
+
+      players: playerList,
+    });
+  }
+}
+
+// =========================
+// 발사 처리
+// =========================
+
+function handleShoot(client, msg) {
+  if (!client.roomId) {
+    return;
+  }
+
+  const room = rooms.get(client.roomId);
+
+  if (!room) {
+    return;
+  }
+
+  if (room.gameOver) {
+    return;
+  }
+
+  // 서버는 물리 계산을 하지 않고
+  // 현재 방의 호스트에게 발사 명령을 전달한다.
+  if (client.id !== room.hostId) {
+    broadcastRoom(
+      room.id,
+      {
+        type: "shoot_request",
+        playerId: client.id,
+        stoneId: msg.stoneId,
+        dx: msg.dx,
+        dy: msg.dy,
+      },
+      client.id
+    );
+
+    return;
+  }
+
+  broadcastRoom(room.id, {
+    type: "shoot",
+    playerId: client.id,
+    stoneId: msg.stoneId,
+    dx: msg.dx,
+    dy: msg.dy,
+  });
+}
+
+// =========================
+// 상태 동기화
+// =========================
+
+function handleState(client, msg) {
+  if (!client.roomId) {
+    return;
+  }
+
+  const room = rooms.get(client.roomId);
+
+  if (!room) {
+    return;
+  }
+
+  // 호스트만 전체 상태를 전송할 수 있음
+  if (client.id !== room.hostId) {
+    return;
+  }
+
+  broadcastRoom(
+    room.id,
+    {
+      type: "state",
+      state: msg.state,
+    },
+    client.id
+  );
+}
+
+// =========================
+// 게임 종료
+// =========================
+
+function handleGameOver(client, msg) {
+  if (!client.roomId) {
+    return;
+  }
+
+  const room = rooms.get(client.roomId);
+
+  if (!room) {
+    return;
+  }
+
+  // 호스트가 게임 종료를 판단
+  if (client.id !== room.hostId) {
+    return;
+  }
+
+  if (room.gameOver) {
+    return;
+  }
+
+  room.gameOver = true;
+
+  const winner =
+    typeof msg.winner === "number"
+      ? msg.winner
+      : null;
+
+  console.log(
+    `[GAME OVER] room=${room.id}, winner=${winner}`
+  );
+
+  broadcastRoom(room.id, {
+    type: "game_over",
+    winner,
+  });
+}
+
+// =========================
+// 채팅
+// =========================
+
+function handleChat(client, msg) {
+  if (!client.roomId) {
+    return;
+  }
+
+  const room = rooms.get(client.roomId);
+
+  if (!room) {
+    return;
+  }
+
+  let text = String(msg.text || "").trim();
+
+  if (!text) {
+    return;
+  }
+
+  // 너무 긴 메시지 방지
+  if (text.length > 200) {
+    text = text.slice(0, 200);
+  }
+
+  broadcastRoom(room.id, {
+    type: "chat",
+    playerId: client.id,
+    name: client.name,
+    text,
+    time: Date.now(),
+  });
+}
+
+// =========================
+// 방 나가기
+// =========================
+
+function leaveRoom(client) {
+  if (!client.roomId) {
+    return;
+  }
+
+  const roomId = client.roomId;
+  const room = rooms.get(roomId);
+
+  client.roomId = null;
+  client.isHost = false;
+
+  if (!room) {
+    return;
+  }
+
+  const index = room.players.indexOf(client.id);
+
+  if (index !== -1) {
+    room.players.splice(index, 1);
+  }
+
+  room.alive.splice(index, 1);
+
+  console.log(
+    `[LEAVE] ${client.name} left room ${roomId}`
+  );
+
+  // 방에 남은 사람에게 알림
+  broadcastRoom(roomId, {
+    type: "player_left",
+    playerId: client.id,
+    name: client.name,
+  });
+
+  // 방에 사람이 없으면 삭제
+  if (room.players.length === 0) {
+    rooms.delete(roomId);
+
+    console.log(
+      `[ROOM DELETE] ${roomId}`
+    );
+
+    return;
+  }
+
+  // =========================
+  // 호스트 변경
+  // =========================
+
+  if (room.hostId === client.id) {
+    room.hostId = room.players[0];
+
+    const newHost = clients.get(room.hostId);
+
+    if (newHost) {
+      newHost.isHost = true;
+    }
+
+    broadcastRoom(roomId, {
+      type: "host_changed",
+      hostId: room.hostId,
+    });
+
+    console.log(
+      `[HOST CHANGE] room=${roomId}, host=${room.hostId}`
+    );
+  }
+}
+
+// =========================
+// 서버 시작
+// =========================
+
+server.listen(PORT, () => {
+  console.log(
+    `Alkkagi server listening on port ${PORT}`
+  );
 });
