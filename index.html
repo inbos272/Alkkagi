@@ -32,6 +32,7 @@
   html,body{height:100%;}
   body{
     margin:0; background:var(--bg); color:var(--text);
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;
     overflow:hidden; overscroll-behavior:none; user-select:none;
     display:flex; align-items:center; justify-content:center;
@@ -73,6 +74,12 @@
   .profile-name{ font-weight:700; font-size:15px; }
   .rank-chip{ display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--gold);
     background:var(--gold-dim); padding:2px 8px; border-radius:20px; margin-top:3px; }
+  .profile-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+  .name-input{width:92px;padding:7px 8px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:12px;outline:none}
+  .name-save,.lang-btn{padding:7px 9px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-weight:700;font-size:11px;cursor:pointer}
+  .name-save:active,.lang-btn:active{transform:scale(.95)}
+  @media(max-width:420px){.name-input{width:76px}.profile-row{padding:10px}.coin{font-size:12px}}
+
   .coin{ display:flex; align-items:center; gap:5px; font-weight:700; font-size:14px; color:var(--gold); }
 
   .stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px; }
@@ -163,7 +170,8 @@
   .turn-banner.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
   #boardWrap{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
-  canvas#board{ touch-action:none; }
+  canvas#board{ touch-action:none; display:block; }
+  button,input{touch-action:manipulation;}
 
   .hud-bottom{ position:absolute; left:0; right:0; bottom:0; padding:0 16px 18px; z-index:5;
     display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none; }
@@ -209,10 +217,15 @@
       <div class="profile-row">
         <div class="avatar">🖐️</div>
         <div class="profile-main">
-          <div class="profile-name">손님</div>
+          <div class="profile-name" id="profileName">손님</div>
           <div class="rank-chip">🥉 <span id="rankLabel">브론즈</span></div>
         </div>
-        <div class="coin">🪙 <span id="coinLabel">0</span></div>
+        <div class="profile-actions">
+          <input id="nicknameInput" class="name-input" maxlength="16" placeholder="닉네임">
+          <button id="btnSaveNickname" class="name-save">저장</button>
+          <button id="btnLanguage" class="lang-btn">EN</button>
+        </div>
+        <div class="coin">🪙 <span id="coinLabel">100</span></div>
       </div>
 
       <div class="stat-grid">
@@ -420,40 +433,47 @@
    설정
    ============================================================ */
 // Render에 배포한 서버 주소로 바꿔주세요. (예: "wss://alkkagi-server.onrender.com")
-const WS_URL = "https://alkkagi-server.onrender.com";
+const WS_URL = "wss://alkkagi-server.onrender.com";
 
 const PLAYER_COLORS = ["--p1","--p2","--p3","--p4","--p5","--p6","--p7","--p8"]
   .map(v => getComputedStyle(document.documentElement).getPropertyValue(v).trim());
 
 const MAPS = {
-  classic: { id:"classic", name:"클래식", desc:"표준", friction:0.985, radiusRatio:0.42, bumpers:[] },
-  ice:     { id:"ice",     name:"빙판",   desc:"미끄러움", friction:0.996, radiusRatio:0.42, bumpers:[] },
-  bumper:  { id:"bumper",  name:"범퍼",   desc:"랜덤 튕김 장치", friction:0.985, radiusRatio:0.42,
+  classic: { id:"classic", name:"클래식", desc:"표준", friction:0.968, radiusRatio:0.42, bumpers:[] },
+  ice:     { id:"ice",     name:"빙판",   desc:"미끄러움", friction:0.992, radiusRatio:0.42, bumpers:[] },
+  bumper:  { id:"bumper",  name:"범퍼",   desc:"랜덤 튕김 장치", friction:0.968, radiusRatio:0.42,
              bumpers:[[0,-0.16],[0,0.16],[-0.18,0],[0.18,0]] },
-  mini:    { id:"mini",    name:"미니",   desc:"특수 · 좁은 판", friction:0.982, radiusRatio:0.30, bumpers:[] },
+  mini:    { id:"mini",    name:"미니",   desc:"특수 · 좁은 판", friction:0.960, radiusRatio:0.30, bumpers:[] },
 };
 const MAP_ORDER = ["classic","ice","bumper","mini"];
 const AI_LEVELS = { easy:{name:"쉬움",err:0.55,pw:0.7}, normal:{name:"보통",err:0.28,pw:0.85}, hard:{name:"어려움",err:0.10,pw:1.0} };
 
 const STONE_R_RATIO = 0.052;   // 보드 반지름 대비 돌 크기
 const MAX_PULL = 110;          // 최대 당김 거리(px, 내부 좌표계 기준)
-const MAX_SPEED = 15.5;
-const SETTLE_EPS = 0.045;
+const MAX_SPEED = 13.5;
+const SETTLE_EPS = 0.075;
 const TURN_TIME_LIMIT = 15;    // 초
 
 /* ============================================================
    저장소 (전적 / 랭크)
    ============================================================ */
 const Storage = {
-  key:"alkkagi_stats_v1",
+  key:"alkkagi_stats_v2",
   load(){
-    try{ return Object.assign({wins:0, games:0, bestStreak:0, curStreak:0, playSeconds:0, coins:0}, JSON.parse(localStorage.getItem(this.key)||"{}")); }
-    catch{ return {wins:0, games:0, bestStreak:0, curStreak:0, playSeconds:0, coins:0}; }
+    try{ return Object.assign({wins:0, games:0, bestStreak:0, curStreak:0, playSeconds:0, coins:100}, JSON.parse(localStorage.getItem(this.key)||"{}")); }
+    catch{ return {wins:0, games:0, bestStreak:0, curStreak:0, playSeconds:0, coins:100}; }
   },
   save(s){ try{ localStorage.setItem(this.key, JSON.stringify(s)); }catch{} },
 };
 let stats = Storage.load();
 let sessionStart = Date.now();
+
+const NicknameStore = {
+  key:"alkkagi_nickname_v1",
+  load(){ try{return localStorage.getItem(this.key)||"";}catch{return "";} },
+  save(v){ try{localStorage.setItem(this.key,v);}catch{} }
+};
+let localNickname = NicknameStore.load();
 
 function rankFromWins(w){
   if(w>=40) return "다이아";
@@ -462,7 +482,37 @@ function rankFromWins(w){
   if(w>=6)  return "실버";
   return "브론즈";
 }
+const LANG = {
+  ko:{save:"저장",nickname:"닉네임",lang:"EN",myTurn:"내 차례",turn:"의 차례",win:"승리!",draw:"무승부",search:"대전 검색",connected:"연결됨",disconnected:"연결 끊김",coin:"코인"},
+  en:{save:"Save",nickname:"Nickname",lang:"KO",myTurn:"Your turn",turn:"'s turn",win:" wins!",draw:"Draw",search:"Find Match",connected:"Connected",disconnected:"Disconnected",coin:"Coins"}
+};
+let language = (()=>{try{return localStorage.getItem("alkkagi_lang")||"ko"}catch{return "ko"}})();
+function t(k){return LANG[language][k]||k;}
+function setLanguage(lang){
+  language=lang;
+  try{localStorage.setItem("alkkagi_lang",lang)}catch{}
+  document.documentElement.lang=lang;
+  document.getElementById("btnSaveNickname").textContent=t("save");
+  document.getElementById("nicknameInput").placeholder=t("nickname");
+  document.getElementById("btnLanguage").textContent=t("lang");
+  document.getElementById("connLabel").textContent=netState.connected?t("connected"):t("disconnected");
+  document.getElementById("turnBanner").textContent=isMyTurn()?t("myTurn"):(game.names[game.engine?.turn]||"")+" "+t("turn");
+  renderHUD();
+}
+document.getElementById("btnLanguage").addEventListener("click",()=>setLanguage(language==="ko"?"en":"ko"));
+document.getElementById("btnSaveNickname").addEventListener("click",()=>{
+  const input=document.getElementById("nicknameInput");
+  const name=input.value.trim().slice(0,16);
+  if(!name){showToast(language==="ko"?"닉네임을 입력하세요":"Enter a nickname");return;}
+  localNickname=name; NicknameStore.save(name);
+  document.getElementById("profileName").textContent=name;
+  if(netState.connected) wsSend({type:"set_name",name});
+});
+document.getElementById("nicknameInput").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("btnSaveNickname").click();});
+
 function refreshProfileUI(){
+  document.getElementById("profileName").textContent=localNickname || (language==="ko"?"손님":"Guest");
+  document.getElementById("nicknameInput").value=localNickname;
   document.getElementById("statWins").textContent = stats.wins;
   document.getElementById("statRate").textContent = stats.games ? Math.round(stats.wins/stats.games*100)+"%" : "0%";
   document.getElementById("statStreak").textContent = stats.bestStreak;
@@ -600,21 +650,28 @@ class Engine{
     this._genStones();
   }
   _genStones(){
-    const n = this.playerCount;
+    // 매 판 완전히 다른 위치에 배치하되, 시작 시 알끼리 겹치지 않게 합니다.
+    const total = this.playerCount * this.stoneCount;
+    const inner = this.boardR * 0.18;
+    const outer = this.boardR * 0.76;
+    const minGap = this.stoneR * 2.35;
     let id=0;
-    for(let p=0;p<n;p++){
-      const ringR = this.boardR*0.62;
-      const baseAng = (p/n)*Math.PI*2 - Math.PI/2;
-      for(let s=0;s<this.stoneCount;s++){
-        const spread = this.stoneCount>1 ? (s-(this.stoneCount-1)/2)*0.34 : 0;
-        const ang = baseAng+spread;
-        const rr = ringR - (this.stoneCount>1? Math.abs(s-(this.stoneCount-1)/2)*this.stoneR*0.4:0);
-        this.stones.push({
-          id:id++, owner:p,
-          x:this.cx+Math.cos(ang)*rr, y:this.cy+Math.sin(ang)*rr,
-          vx:0, vy:0, r:this.stoneR, alive:true,
-        });
-      }
+    let attempts=0;
+    while(this.stones.length < total && attempts < total*400){
+      attempts++;
+      const ang = Math.random()*Math.PI*2;
+      const rr = Math.sqrt(Math.random()) * (outer-inner) + inner;
+      const x=this.cx+Math.cos(ang)*rr, y=this.cy+Math.sin(ang)*rr;
+      if(this.stones.some(s=>Math.hypot(s.x-x,s.y-y)<minGap)) continue;
+      const owner = Math.floor(this.stones.length / this.stoneCount);
+      this.stones.push({id:id++,owner,x,y,vx:0,vy:0,r:this.stoneR,alive:true});
+    }
+    // 극단적인 경우(좁은 미니 맵)에는 균등 원형 배치로 안전하게 채웁니다.
+    for(let p=this.stones.length;p<total;p++){
+      const ang=(p/total)*Math.PI*2;
+      const rr=Math.max(inner, outer*0.72);
+      const owner=Math.floor(p/this.stoneCount);
+      this.stones.push({id:id++,owner,x:this.cx+Math.cos(ang)*rr,y:this.cy+Math.sin(ang)*rr,vx:0,vy:0,r:this.stoneR,alive:true});
     }
   }
   aliveCountFor(p){ return this.stones.filter(s=>s.owner===p && s.alive).length; }
@@ -664,8 +721,10 @@ class Engine{
           const nx=dx/d, ny=dy/d;
           s.x = b.x+nx*min; s.y = b.y+ny*min;
           const dot = s.vx*nx+s.vy*ny;
-          s.vx -= 2*dot*nx; s.vy -= 2*dot*ny;
-          anyMoving = true;
+          if(dot < 0){
+            s.vx -= 2*dot*nx; s.vy -= 2*dot*ny;
+            anyMoving = true;
+          }
         }
       }
     }
@@ -683,8 +742,8 @@ class Engine{
           if(rel<0){
             a.vx += rel*nx; a.vy += rel*ny;
             b.vx -= rel*nx; b.vy -= rel*ny;
+            anyMoving = true;
           }
-          anyMoving = true;
         }
       }
     }
@@ -845,7 +904,7 @@ function connectWS(onOpenCb){
 function setConnStatus(ok){
   const dot = document.getElementById("connDot");
   dot.classList.toggle("bad", !ok);
-  document.getElementById("connLabel").textContent = ok?"연결됨":"연결 끊김";
+  document.getElementById("connLabel").textContent = ok?t(ok?"connected":"disconnected"):(language==="ko"?"연결 끊김":"Disconnected");
 }
 function wsSend(obj){ if(netState.ws && netState.ws.readyState===1) netState.ws.send(JSON.stringify(obj)); }
 
@@ -854,7 +913,7 @@ function findMatch(playerCount, map, stoneCount){
   document.getElementById("searchTitle").textContent = `대전 검색 중 (${playerCount}인 매치)`;
   go("searching");
   connectWS(()=>{
-    wsSend({type:"find_match", playerCount, map, stoneCount, name:"손님"});
+    wsSend({type:"find_match", playerCount, map, stoneCount, name:localNickname || undefined});
   });
 }
 function cancelSearch(){
@@ -875,7 +934,19 @@ document.getElementById("btnFindMatch").addEventListener("click", ()=>{
 function handleNetMessage(msg){
   switch(msg.type){
     case "welcome":
-      netState.clientId = msg.clientId; break;
+      netState.clientId = msg.clientId;
+      if(!localNickname && msg.name){ localNickname=msg.name; NicknameStore.save(localNickname); refreshProfileUI(); }
+      break;
+    case "name_changed":
+      if(msg.clientId===netState.clientId){ localNickname=msg.name; NicknameStore.save(localNickname); refreshProfileUI(); }
+      if(netState.mode==="in_room"){
+        const p=netState.players.find(x=>x.clientId===msg.clientId);
+        if(p){p.name=msg.name; const idx=netState.players.indexOf(p); if(game.names) game.names[idx]=idx===netState.you_index_cached?"나":msg.name; buildHudPlayers(); renderHUD();}
+      }
+      break;
+    case "name_taken":
+      showToast(language==="ko"?"이미 사용 중인 닉네임이에요":"That nickname is already in use");
+      break;
     case "searching": break;
     case "match_found":
       netState.mode = "in_room";
@@ -890,9 +961,12 @@ function handleNetMessage(msg){
       }
       break;
     case "shoot":
-      if(netState.isHost && game.engine){
-        game.engine.shoot(msg.stoneId, msg.dx, msg.dy);
-        game.isSimulating = true;
+      if(netState.isHost && game.engine && !game.engine.moving && game.engine.winner==null){
+        const stone = game.engine.stones.find(s=>s.id===msg.stoneId && s.alive);
+        if(stone && stone.owner===game.engine.turn && stone.owner===netState.players.findIndex(p=>p.clientId===msg.from)){
+          game.engine.shoot(msg.stoneId, Number(msg.dx)||0, Number(msg.dy)||0);
+          game.isSimulating = true;
+        }
       }
       break;
     case "game_over":
@@ -927,6 +1001,8 @@ function startPracticeGame(){
   const n = stepConfig.players.val, sc = stepConfig.stones.val;
   fitCanvas();
   game.mode = "practice";
+  game._wasMoving = false;
+  game._reportedOver = false;
   game.engine = new Engine({map:practiceState.map, playerCount:n, stoneCount:sc, boardPx});
   game.names = Array.from({length:n},(_,i)=> i===0? "나" : `플레이어 ${i+1}`);
   game.aiFlags = practiceState.aiFlags.slice(0,n);
@@ -937,6 +1013,8 @@ function startAIGame(){
   const n = stepConfig.aiPlayers.val;
   fitCanvas();
   game.mode = "ai";
+  game._wasMoving = false;
+  game._reportedOver = false;
   game.engine = new Engine({map:aiState.map, playerCount:n, stoneCount:2, boardPx});
   game.names = Array.from({length:n},(_,i)=> i===0? "나" : `AI ${i}`);
   game.aiFlags = Array.from({length:n},(_,i)=> i!==0);
@@ -946,6 +1024,8 @@ function startAIGame(){
 function startOnlineGame(msg){
   fitCanvas();
   game.mode = "online";
+  game._wasMoving = false;
+  game._reportedOver = false;
   game.engine = new Engine({map:msg.map, playerCount:msg.players.length, stoneCount:msg.stoneCount, boardPx});
   game.names = msg.players.map((p,i)=> p.clientId===netState.clientId? "나" : p.name);
   game.aiFlags = msg.players.map(()=>false);
@@ -1003,7 +1083,7 @@ function updateTurnBanner(){
     lastTurn = e.turn;
     const banner = document.getElementById("turnBanner");
     const isMe = isMyTurn();
-    banner.textContent = isMe ? "내 차례" : `${game.names[e.turn]}의 차례`;
+    banner.textContent = isMe ? t("myTurn") : `${game.names[e.turn]}${t("turn")}`;
     banner.classList.add("show");
     clearTimeout(banner._t);
     banner._t = setTimeout(()=> banner.classList.remove("show"), 1200);
@@ -1105,18 +1185,29 @@ let lastBroadcast = 0;
 function loop(){
   const e = game.engine;
   if(!e || e.winner!=null){ return; }
+
+  const wasMoving = e.moving;
   if(e.moving){
     e.step();
     if(game.mode==="online" && netState.isHost){
       const now = performance.now();
-      if(now-lastBroadcast > 45){ wsSend({type:"state", ...e.serialize()}); lastBroadcast=now; }
+      if(now-lastBroadcast > 45){
+        wsSend({type:"state", ...e.serialize()});
+        lastBroadcast=now;
+      }
     }
-  } else if(game._wasMoving){
-    if(game.mode==="online" && netState.isHost){ wsSend({type:"state", ...e.serialize()}); }
+  }
+
+  // 이동이 끝난 순간은 반드시 한 번 렌더링/상태 전송하고 다음 턴을 시작합니다.
+  if(wasMoving && !e.moving){
+    if(game.mode==="online" && netState.isHost){
+      wsSend({type:"state", ...e.serialize()});
+    }
     renderHUD();
-    if(e.winner!=null){ onGameOver(); requestAnimationFrame(loop); return; }
+    if(e.winner!=null){ onGameOver(); return; }
     if(game.mode!=="online") maybeAiTurn();
   }
+
   game._wasMoving = e.moving;
   drawBoard(e, aimInfo);
   requestAnimationFrame(loop);
@@ -1150,16 +1241,18 @@ function onGameOver(){
   const iWon = (game.mode==="online") ? winnerIdx===netState.you_index_cached : winnerIdx===0;
   updateStatsOnGameEnd(iWon, winnerIdx!=null);
   setTimeout(()=>{
-    showResult(winnerIdx!=null ? `${game.names[winnerIdx]} 승리!` : "무승부", winnerIdx);
+    showResult(winnerIdx!=null ? `${game.names[winnerIdx]}${t("win")}` : t("draw"), winnerIdx);
   }, 550);
 }
 function updateStatsOnGameEnd(iWon, decided){
   if(!decided) return;
   stats.games += 1;
+  // 모든 참가자는 게임 완료 보상 10코인, 승자는 참가자 수 × 10코인 추가.
+  stats.coins += 10;
   if(iWon){
     stats.wins += 1; stats.curStreak += 1;
     stats.bestStreak = Math.max(stats.bestStreak, stats.curStreak);
-    stats.coins += 10;
+    stats.coins += (game.engine.playerCount * 10);
   } else {
     stats.curStreak = 0;
   }
@@ -1217,6 +1310,7 @@ handleNetMessage = function(msg){
 /* 최초 진입 */
 refreshProfileUI();
 fitCanvas();
+setLanguage(language);
 </script>
 </body>
 </html>
