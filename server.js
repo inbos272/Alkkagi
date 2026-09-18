@@ -1,329 +1,248 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+// ============================================================
+// 알까기 온라인 서버
+// - package.json 의존성: "ws" 하나만 사용 (가볍게, Render 무료 플랜에 적합)
+// - 서버는 "방장(host) 클라이언트가 물리 연산을 하고, 서버는 방을 만들고
+//   메시지를 방 안의 다른 사람들에게 그대로 전달(relay)"하는 구조입니다.
+//   → 서버가 물리 엔진을 돌리지 않아 CPU 부담이 거의 없고, 클라이언트 로직을
+//     그대로 재사용할 수 있어 안정적입니다.
+// ============================================================
+
 const { WebSocketServer } = require('ws');
+const http = require('http');
 
-const PORT = Number(process.env.PORT || 8787);
-const ROOT = __dirname;
-const INDEX = path.join(ROOT, '알까기_개선버전_v9.html');
+const PORT = process.env.PORT || 8080;
 
-const queues = new Map([
-  [2, []],
-  [3, []],
-  [4, []]
-]);
+// 헬스체크용 HTTP 서버 (Render는 HTTP 응답이 있어야 "살아있다"고 판단합니다)
+const httpServer = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end('Alkkagi WebSocket server is running.\n');
+});
 
-const matches = new Map();
-let nextMatchId = 1;
+const wss = new WebSocketServer({ server: httpServer });
 
-function send(ws, msg) {
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify(msg));
+// --------------------------------------------------------------
+// 상태
+// --------------------------------------------------------------
+let nextClientId = 1;
+let nextRoomId = 1;
+
+/** clientId -> { ws, name, roomId } */
+const clients = new Map();
+
+/** queueKey(`${playerCount}:${map}`) -> [clientId, ...] 대기열 */
+const queues = new Map();
+
+/** roomId -> { id, map, playerCount, stoneCount, players:[clientId,...], hostId, alive:Set } */
+const rooms = new Map();
+
+function send(ws, obj) {
+  if (ws && ws.readyState === ws.OPEN) {
+    ws.send(JSON.stringify(obj));
   }
 }
 
-function removeFromQueue(ws) {
-  for (const q of queues.values()) {
-    const idx = q.indexOf(ws);
-    if (idx >= 0) {
-      q.splice(idx, 1);
-    }
-  }
-
-  ws.queueSize = null;
-}
-
-function closeMatchForPlayer(ws, reason = 'A player left the match.') {
-  const matchId = ws.matchId;
-
-  if (!matchId) return;
-
-  const match = matches.get(matchId);
-
-  if (!match) return;
-
-  for (const p of match.players) {
-    if (p.ws !== ws) {
-      send(p.ws, {
-        type: 'matchClosed',
-        reason
-      });
-    }
-
-    p.ws.matchId = null;
-  }
-
-  matches.delete(matchId);
-  ws.matchId = null;
-}
-
-function tryMatch(size) {
-  const q = queues.get(size);
-
-  while (q && q.length >= size) {
-    const players = q.splice(0, size);
-
-    const matchId =
-      `m${Date.now().toString(36)}-${nextMatchId++}`;
-
-    const map =
-      players[0].queueMap || 'classic';
-
-    const match = {
-      id: matchId,
-      size,
-      map,
-      players: players.map((ws, i) => ({
-        ws,
-        nickname: ws.nickname || `Player ${i + 1}`,
-        index: i
-      }))
-    };
-
-    matches.set(matchId, match);
-
-    match.players.forEach((p, i) => {
-      p.ws.matchId = matchId;
-      p.ws.queueSize = null;
-
-      send(p.ws, {
-        type: 'matchFound',
-        matchId,
-        isHost: i === 0,
-        playerIndex: i,
-        playerCount: size,
-        map,
-        players: match.players.map(x => ({
-          index: x.index,
-          nickname: x.nickname
-        }))
-      });
-    });
+function broadcastRoom(room, obj, exceptId = null) {
+  for (const cid of room.players) {
+    if (cid === exceptId) continue;
+    const c = clients.get(cid);
+    if (c) send(c.ws, obj);
   }
 }
 
-const server = http.createServer((req, res) => {
-  const url = new URL(
-    req.url,
-    `http://${req.headers.host || 'localhost'}`
-  );
+function queueKey(playerCount, map) {
+  return `${playerCount}:${map}`;
+}
 
-  if (url.pathname === '/health') {
-    res.writeHead(200, {
-      'Content-Type': 'application/json; charset=utf-8'
-    });
+function removeFromAllQueues(clientId) {
+  for (const [key, list] of queues) {
+    const idx = list.indexOf(clientId);
+    if (idx !== -1) list.splice(idx, 1);
+    if (list.length === 0) queues.delete(key);
+  }
+}
 
-    res.end(
-      JSON.stringify({
-        ok: true,
-        queues: Object.fromEntries(
-          [...queues].map(([k, v]) => [k, v.length])
-        )
-      })
-    );
+function leaveRoom(clientId) {
+  const c = clients.get(clientId);
+  if (!c || !c.roomId) return;
+  const room = rooms.get(c.roomId);
+  c.roomId = null;
+  if (!room) return;
 
+  room.players = room.players.filter((id) => id !== clientId);
+  room.alive.delete(clientId);
+
+  if (room.players.length === 0) {
+    rooms.delete(room.id);
     return;
   }
 
-  let filePath =
-    url.pathname === '/'
-      ? INDEX
-      : path.join(
-          ROOT,
-          decodeURIComponent(
-            url.pathname.replace(/^\//, '')
-          )
-        );
-
-  if (!filePath.startsWith(ROOT)) {
-    res.writeHead(403);
-    res.end('Forbidden');
-    return;
+  // 방장이 나갔다면 다음 사람에게 방장을 위임합니다.
+  const hostLeft = room.hostId === clientId;
+  if (hostLeft) {
+    room.hostId = room.players[0];
   }
 
-  if (
-    !fs.existsSync(filePath) ||
-    !fs.statSync(filePath).isFile()
-  ) {
-    res.writeHead(404);
-    res.end('Not found');
-    return;
-  }
-
-  const ext = path.extname(filePath).toLowerCase();
-
-  const type =
-    ext === '.html'
-      ? 'text/html; charset=utf-8'
-      : ext === '.js'
-      ? 'text/javascript; charset=utf-8'
-      : 'application/octet-stream';
-
-  res.writeHead(200, {
-    'Content-Type': type,
-    'Cache-Control': 'no-cache'
+  broadcastRoom(room, {
+    type: 'player_left',
+    clientId,
+    newHostId: room.hostId,
   });
+}
 
-  fs.createReadStream(filePath).pipe(res);
-});
+// --------------------------------------------------------------
+// 연결 처리
+// --------------------------------------------------------------
+wss.on('connection', (ws) => {
+  const clientId = nextClientId++;
+  clients.set(clientId, { ws, name: `손님${clientId}`, roomId: null });
 
-const wss = new WebSocketServer({
-  noServer: true
-});
+  send(ws, { type: 'welcome', clientId });
 
-server.on('upgrade', (req, socket, head) => {
-  const url = new URL(
-    req.url,
-    `http://${req.headers.host || 'localhost'}`
-  );
-
-  if (url.pathname !== '/ws') {
-    socket.destroy();
-    return;
-  }
-
-  wss.handleUpgrade(
-    req,
-    socket,
-    head,
-    ws => wss.emit('connection', ws, req)
-  );
-});
-
-wss.on('connection', ws => {
-  ws.queueSize = null;
-  ws.matchId = null;
-  ws.nickname = 'Player';
-
-  ws.on('message', raw => {
+  ws.on('message', (raw) => {
     let msg;
-
     try {
       msg = JSON.parse(raw.toString());
     } catch {
-      return;
+      return; // 잘못된 메시지는 조용히 무시 (서버가 죽지 않도록)
     }
 
-    // -----------------------------
-    // Join matchmaking queue
-    // -----------------------------
-    if (msg.type === 'queueJoin') {
-      const size = Math.max(
-        2,
-        Math.min(4, Number(msg.size) || 2)
-      );
+    const c = clients.get(clientId);
+    if (!c) return;
 
-      removeFromQueue(ws);
+    switch (msg.type) {
+      // ---- 매치메이킹 ----
+      case 'find_match': {
+        const playerCount = Math.min(4, Math.max(2, Number(msg.playerCount) || 2));
+        const map = String(msg.map || 'classic');
+        const stoneCount = Math.min(4, Math.max(1, Number(msg.stoneCount) || 2));
+        if (typeof msg.name === 'string' && msg.name.trim()) {
+          c.name = msg.name.trim().slice(0, 16);
+        }
 
-      ws.nickname =
-        String(msg.nickname || 'Player').slice(0, 16);
+        const key = queueKey(playerCount, map);
+        if (!queues.has(key)) queues.set(key, []);
+        const list = queues.get(key);
+        if (!list.includes(clientId)) list.push(clientId);
 
-      ws.queueMap = [
-        'classic',
-        'ice',
-        'bumper',
-        'tiny'
-      ].includes(msg.map)
-        ? msg.map
-        : 'classic';
+        send(ws, { type: 'searching', playerCount, map });
 
-      ws.queueSize = size;
+        if (list.length >= playerCount) {
+          const memberIds = list.splice(0, playerCount);
+          const roomId = nextRoomId++;
+          const room = {
+            id: roomId,
+            map,
+            playerCount,
+            stoneCount,
+            players: memberIds,
+            hostId: memberIds[0],
+            alive: new Set(memberIds),
+          };
+          rooms.set(roomId, room);
+          if (list.length === 0) queues.delete(key);
 
-      queues.get(size).push(ws);
+          memberIds.forEach((id) => {
+            const member = clients.get(id);
+            if (member) member.roomId = roomId;
+          });
 
-      send(ws, {
-        type: 'queueJoined',
-        size
-      });
+          const rosterFor = () =>
+            memberIds.map((id, idx) => ({
+              clientId: id,
+              index: idx,
+              name: clients.get(id)?.name || `손님${id}`,
+            }));
 
-      tryMatch(size);
-
-      return;
-    }
-
-    // -----------------------------
-    // Leave matchmaking queue
-    // -----------------------------
-    if (msg.type === 'queueLeave') {
-      removeFromQueue(ws);
-      return;
-    }
-
-    // -----------------------------
-    // Online game messages
-    // -----------------------------
-    if (
-      msg.type === 'shot' ||
-      msg.type === 'state'
-    ) {
-      if (!ws.matchId) {
-        return;
-      }
-
-      const match = matches.get(ws.matchId);
-
-      if (!match) {
-        return;
-      }
-
-      // Remote player sends shot information.
-      if (msg.type === 'shot') {
-        for (const p of match.players) {
-          if (p.ws !== ws) {
-            send(p.ws, {
-              ...msg,
-              matchId: ws.matchId
+          memberIds.forEach((id) => {
+            const member = clients.get(id);
+            if (!member) return;
+            send(member.ws, {
+              type: 'match_found',
+              roomId,
+              map,
+              stoneCount,
+              you: id,
+              hostId: room.hostId,
+              isHost: room.hostId === id,
+              players: rosterFor(),
             });
-          }
+          });
         }
+        break;
       }
 
-      // Only the host may broadcast game state.
-      else if (
-        msg.type === 'state' &&
-        match.players[0].ws === ws
-      ) {
-        for (const p of match.players) {
-          if (p.ws !== ws) {
-            send(p.ws, msg);
-          }
-        }
+      case 'cancel_search': {
+        removeFromAllQueues(clientId);
+        send(ws, { type: 'search_cancelled' });
+        break;
       }
 
-      return;
-    }
+      // ---- 게임 중 릴레이 ----
+      // 참가자가 자기 턴에 스톤을 튕기면(shoot) 서버는 그대로 방장에게 전달합니다.
+      case 'shoot': {
+        if (!c.roomId) return;
+        const room = rooms.get(c.roomId);
+        if (!room) return;
+        const host = clients.get(room.hostId);
+        if (host) {
+          send(host.ws, { type: 'shoot', from: clientId, ...msg });
+        }
+        break;
+      }
 
-    // -----------------------------
-    // Leave active match
-    // -----------------------------
-    if (msg.type === 'leaveMatch') {
-      closeMatchForPlayer(
-        ws,
-        'A player left the match.'
-      );
+      // 방장이 물리 연산 결과(스톤 위치/턴/생존자)를 브로드캐스트합니다.
+      case 'state': {
+        if (!c.roomId) return;
+        const room = rooms.get(c.roomId);
+        if (!room || room.hostId !== clientId) return; // 방장만 상태를 보낼 수 있음
+        broadcastRoom(room, { type: 'state', ...msg }, clientId);
+        break;
+      }
 
-      return;
+      // 게임 종료 알림(방장이 승자를 판정해 브로드캐스트)
+      case 'game_over': {
+        if (!c.roomId) return;
+        const room = rooms.get(c.roomId);
+        if (!room || room.hostId !== clientId) return;
+        broadcastRoom(room, { type: 'game_over', ...msg }, clientId);
+        break;
+      }
+
+      // 채팅/이모트 등 부가 기능 (있으면 그대로 중계)
+      case 'chat': {
+        if (!c.roomId) return;
+        const room = rooms.get(c.roomId);
+        if (!room) return;
+        broadcastRoom(room, { type: 'chat', from: clientId, name: c.name, text: String(msg.text || '').slice(0, 200) });
+        break;
+      }
+
+      case 'leave_room': {
+        leaveRoom(clientId);
+        break;
+      }
+
+      case 'ping': {
+        send(ws, { type: 'pong', t: msg.t });
+        break;
+      }
+
+      default:
+        break;
     }
   });
 
   ws.on('close', () => {
-    removeFromQueue(ws);
+    removeFromAllQueues(clientId);
+    leaveRoom(clientId);
+    clients.delete(clientId);
+  });
 
-    if (ws.matchId) {
-      closeMatchForPlayer(
-        ws,
-        'A player disconnected.'
-      );
-    }
+  ws.on('error', () => {
+    // 연결 오류는 close 이벤트로 이어지므로 별도 처리 불필요
   });
 });
 
-server.listen(PORT, () => {
-  console.log(
-    `알까기 server listening on http://localhost:${PORT}`
-  );
-
-  console.log(
-    `Online WebSocket endpoint: ws://localhost:${PORT}/ws`
-  );
+httpServer.listen(PORT, () => {
+  console.log(`Alkkagi WS server listening on :${PORT}`);
 });
