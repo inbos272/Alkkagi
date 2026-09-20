@@ -332,6 +332,8 @@ canvas#board{touch-action:none}
 
 </div>
 <script>
+
+
 "use strict";
 
 /* ============================================================
@@ -360,27 +362,36 @@ const RATING_DELTA={win:22,loss:-16,draw:0};
    - 1단계 업그레이드 = 승리 약 8~10회 분량으로 잡음
 ============================================================ */
 const UPGRADES=[
- {id:"mass",  ico:"⚓", nameKey:"up_mass_name",  descKey:"up_mass_desc",  max:5, costs:[260,400,580,800,1080], effKey:"up_mass_eff",  eff:l=>(l*18)},
- {id:"grip",  ico:"🧲", nameKey:"up_grip_name",  descKey:"up_grip_desc",  max:5, costs:[220,340,500,700,960],  effKey:"up_grip_eff",  eff:l=>(l*12)},
- {id:"power", ico:"💪", nameKey:"up_power_name", descKey:"up_power_desc", max:5, costs:[280,420,620,860,1150], effKey:"up_power_eff", eff:l=>(l*4)},
- {id:"bounce",ico:"🌀", nameKey:"up_bounce_name",descKey:"up_bounce_desc",max:3, costs:[380,640,980],          effKey:"up_bounce_eff",eff:l=>(l*6)},
- {id:"aim",   ico:"🎯", nameKey:"up_aim_name",   descKey:"up_aim_desc",   max:1, costs:[900],                  effKey:"up_aim_eff",   eff:l=>l}
+ {id:"mass",  ico:"⚓", nameKey:"up_mass_name",  descKey:"up_mass_desc",  max:5, costs:[90,135,195,270,360], effKey:"up_mass_eff",  eff:l=>(l*18)},
+ {id:"grip",  ico:"🧲", nameKey:"up_grip_name",  descKey:"up_grip_desc",  max:5, costs:[75,115,170,235,320],  effKey:"up_grip_eff",  eff:l=>(l*12)},
+ {id:"power", ico:"💪", nameKey:"up_power_name", descKey:"up_power_desc", max:5, costs:[95,140,210,290,385], effKey:"up_power_eff", eff:l=>(l*4)},
+ {id:"bounce",ico:"🌀", nameKey:"up_bounce_name",descKey:"up_bounce_desc",max:3, costs:[130,215,330],          effKey:"up_bounce_eff",eff:l=>(l*6)},
+ {id:"aim",   ico:"🎯", nameKey:"up_aim_name",   descKey:"up_aim_desc",   max:1, costs:[300],                  effKey:"up_aim_eff",   eff:l=>l}
 ];
 const SKINS=[
  {id:"basic", nameKey:"skin_basic", cost:0,    colors:null},
- {id:"neon",  nameKey:"skin_neon",  cost:600,  colors:["#7df9ff","#2a6bff"], glow:.55},
- {id:"gold",  nameKey:"skin_gold",  cost:1400, colors:["#ffe9a8","#c8901f"], glow:.4},
- {id:"magma", nameKey:"skin_magma", cost:2200, colors:["#ffd36b","#e33b1f"], glow:.6},
- {id:"aurora",nameKey:"skin_aurora",cost:3200, colors:["#9dfff0","#a066ff"], glow:.7}
+ {id:"neon",  nameKey:"skin_neon",  cost:200,  colors:["#7df9ff","#2a6bff"], glow:.55},
+ {id:"gold",  nameKey:"skin_gold",  cost:470, colors:["#ffe9a8","#c8901f"], glow:.4},
+ {id:"magma", nameKey:"skin_magma", cost:735, colors:["#ffd36b","#e33b1f"], glow:.6},
+ {id:"aurora",nameKey:"skin_aurora",cost:1070, colors:["#9dfff0","#a066ff"], glow:.7}
 ];
 
 /* ============================================================
    다국어
 ============================================================ */
 const I18N={
-ko:{stat_wins:"총 승리",stat_rate:"승률",stat_streak:"최고 연승",stat_time:"플레이 시간",menu_practice_title:"연습",menu_practice_desc:"인원, 알 개수, AI 여부까지 자유롭게 설정해서 즐겨요",menu_battle_title:"대전",menu_battle_desc:"AI 또는 다른 사람과 진짜 대결을 펼쳐요",menu_shop_title:"상점",menu_shop_desc:"모은 코인으로 알을 강화하고 스킨을 바꿔요",practice_screen_title:"연습",practice_intro:"둥근 판 위에서 내 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요.\n다른 알을 판 밖으로 쳐내고 마지막까지 남으세요.",field_players:"플레이어 수 (2~8명)",field_stones:"알 개수 (1인당)",field_map:"맵 선택",field_ai_level:"AI 난이도",field_players_list_title:"플레이어",field_players_list_desc:"AI로 설정하면 컴퓨터가 대신 조준해요",btn_start:"시작하기",battle_ai_title:"AI 대전",battle_ai_desc:"2~4인 · 나 1명 + AI와 대결해요 · 랭크에 영향 없음",ai_intro:"나 1명과 AI가 맞붙어요.",field_ai_total:"전체 인원 (2~4명, 나 1명 + AI)",field_online_players:"희망 매치 인원 (2~4명)",btn_find_match:"대전 검색",search_sub:"같은 인원수의 플레이어를 찾고 있어요.",search_connecting:"서버에 연결하는 중...",search_waiting:"매칭 상대를 찾는 중...",search_fail:"서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요.",search_title_count:"대전 검색 중 ({n}인 매치)",btn_cancel:"취소",conn_connected:"연결됨",conn_disconnected:"연결 끊김",turn_mine:"내 차례",turn_other:"{name}의 차례",hint_default:"내 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요",hint_defeated:"내 알이 모두 나갔어요",exit_title:"나가시겠어요?",exit_body:"게임을 나가고 메인 메뉴로 돌아갈까요?\n진행 중인 대결은 사라져요.",btn_leave:"나가기",result_sub:"대결이 끝났어요",btn_again:"다시하기",btn_menu:"메인 메뉴로",btn_go_shop:"상점 가기",map_classic_name:"클래식",map_classic_desc:"표준",map_ice_name:"빙판",map_ice_desc:"미끄러움",map_bumper_name:"범퍼",map_bumper_desc:"랜덤 튕김 장치",map_mini_name:"미니",map_mini_desc:"특수 · 좁은 판",ai_easy:"쉬움",ai_normal:"보통",ai_hard:"어려움",player_me:"나",player_n:"플레이어 {n}",ai_n:"AI {n}",coin_insufficient:"코인이 부족해요 ({n}코인 필요)",opp_left_toast:"상대가 나갔어요",disconnect_end:"상대방이 나가서 대결이 종료됐어요",ws_not_set:"⚠ WS_URL이 아직 설정되지 않았어요",win_reward_toast:"승리! +{n} 코인",rank_bronze:"브론즈",rank_silver:"실버",rank_gold:"골드",rank_platinum:"플래티넘",rank_diamond:"다이아",stones_unit:"{n}개",nick_placeholder:"닉네임",battle_casual_title:"일반전",battle_casual_desc:"2~4인 실제 플레이어와 부담없이 즐겨요 · 랭크에 영향 없음",battle_rank_title:"랭크전",battle_rank_desc:"2~4인 실제 플레이어와 겨뤄 레이팅을 올려요 · 승패가 랭크에 반영돼요",online_intro_casual:"실제 플레이어와 부담없이 즐기는 일반전이에요. 승패가 랭크에 영향을 주지 않아요.",online_intro_rank:"실제 플레이어와 레이팅을 걸고 겨루는 랭크전이에요. 승패에 따라 레이팅이 오르내려요.",result_draw:"무승부",result_win:"승리",result_lose:"패배",practice_end:"연습 종료",toggle_music:"음악",toggle_sfx:"효과음",shop_tab_upgrade:"알 강화",shop_tab_skin:"스킨",shop_note_upgrade:"강화는 연습과 AI 대전에서 내 알에 적용돼요.\n온라인 대전은 공정함을 위해 모두 같은 기본 성능으로 겨뤄요.",shop_note_skin:"스킨은 모든 모드에서 내 알에 적용돼요.",buy:"구매",owned:"보유",equip:"장착",equipped:"장착 중",maxed:"최대",level_of:"Lv.{a}/{b}",up_mass_name:"강철 심지",up_mass_desc:"알이 무거워져 상대를 더 세게 밀고, 맞아도 덜 밀려요. 대신 발사 속도가 조금 느려져요.",up_mass_eff:"무게 +{n}%",up_grip_name:"논슬립 코팅",up_grip_desc:"내 알이 더 빨리 멈춰서 판 밖으로 미끄러져 나갈 위험이 줄어요.",up_grip_eff:"제동력 +{n}%",up_power_name:"파워 그립",up_power_desc:"같은 거리를 당겨도 더 빠르게 날아가요.",up_power_eff:"최대 파워 +{n}%",up_bounce_name:"탄성 코팅",up_bounce_desc:"부딪힐 때 반발력이 커져 상대를 더 멀리 날려보내요.",up_bounce_eff:"반발 +{n}%",up_aim_name:"예측 조준선",up_aim_desc:"당기는 동안 알이 날아갈 방향과 도달 지점을 보여줘요.",up_aim_eff:"조준 보조 켜짐",skin_basic:"기본",skin_neon:"네온",skin_gold:"골드",skin_magma:"마그마",skin_aurora:"오로라",purchased:"구매 완료!",reward_coin:"🪙 +{n}",reward_rp:"{n} RP",reward_none:"보상 없음",shop_badge_new:"NEW"},
-en:{stat_wins:"Total Wins",stat_rate:"Win Rate",stat_streak:"Best Streak",stat_time:"Play Time",menu_practice_title:"Practice",menu_practice_desc:"Set players, stones and AI however you like",menu_battle_title:"Battle",menu_battle_desc:"Face off against AI or real players",menu_shop_title:"Shop",menu_shop_desc:"Spend coins on stone upgrades and skins",practice_screen_title:"Practice",practice_intro:"Pull your stone back and release to flick it the other way.\nKnock the other stones off the board and be the last one standing.",field_players:"Players (2–8)",field_stones:"Stones per player",field_map:"Select Map",field_ai_level:"AI Difficulty",field_players_list_title:"Players",field_players_list_desc:"Set to AI to let the computer aim for you",btn_start:"Start",battle_ai_title:"AI Battle",battle_ai_desc:"2–4 players · You vs AI · Doesn't affect rank",ai_intro:"You face off against AI.",field_ai_total:"Total players (2–4, you + AI)",field_online_players:"Desired match size (2–4)",btn_find_match:"Find Match",search_sub:"Looking for players with the same match size.",search_connecting:"Connecting to server...",search_waiting:"Searching for opponents...",search_fail:"Couldn't connect to the server. Please try again shortly.",search_title_count:"Finding match ({n}-player)",btn_cancel:"Cancel",conn_connected:"Connected",conn_disconnected:"Disconnected",turn_mine:"Your turn",turn_other:"{name}'s turn",hint_default:"Pull back your stone and release to flick it",hint_defeated:"All of your stones are out",exit_title:"Leave the match?",exit_body:"Leave the game and return to the main menu?\nYour ongoing match will be lost.",btn_leave:"Leave",result_sub:"The match has ended",btn_again:"Play Again",btn_menu:"Main Menu",btn_go_shop:"Go to Shop",map_classic_name:"Classic",map_classic_desc:"Standard",map_ice_name:"Ice",map_ice_desc:"Slippery",map_bumper_name:"Bumper",map_bumper_desc:"Bounce pegs",map_mini_name:"Mini",map_mini_desc:"Narrow board",ai_easy:"Easy",ai_normal:"Normal",ai_hard:"Hard",player_me:"Me",player_n:"Player {n}",ai_n:"AI {n}",coin_insufficient:"Not enough coins ({n} needed)",opp_left_toast:"Opponent left",disconnect_end:"The match ended because your opponent left",ws_not_set:"⚠ WS_URL is not set yet",win_reward_toast:"Victory! +{n} coins",rank_bronze:"Bronze",rank_silver:"Silver",rank_gold:"Gold",rank_platinum:"Platinum",rank_diamond:"Diamond",stones_unit:"{n}",nick_placeholder:"Nickname",battle_casual_title:"Casual Match",battle_casual_desc:"2–4 players · Real opponents, no pressure · Doesn't affect rank",battle_rank_title:"Ranked Match",battle_rank_desc:"2–4 players · Compete for rating · Wins and losses affect your rank",online_intro_casual:"A casual match against real players. Results don't affect your rank.",online_intro_rank:"A ranked match against real players. Your rating goes up or down with the result.",result_draw:"Draw",result_win:"Victory",result_lose:"Defeat",practice_end:"Practice Over",toggle_music:"Music",toggle_sfx:"SFX",shop_tab_upgrade:"Upgrades",shop_tab_skin:"Skins",shop_note_upgrade:"Upgrades apply to your stones in Practice and AI Battle.\nOnline matches use standard stats so everyone competes fairly.",shop_note_skin:"Skins apply to your stones in every mode.",buy:"Buy",owned:"Owned",equip:"Equip",equipped:"Equipped",maxed:"Max",level_of:"Lv.{a}/{b}",up_mass_name:"Steel Core",up_mass_desc:"A heavier stone pushes harder and gets pushed less. Slightly slower off the flick.",up_mass_eff:"Weight +{n}%",up_grip_name:"Non-slip Coating",up_grip_desc:"Your stone slows down sooner, so it's less likely to slide off the board.",up_grip_eff:"Braking +{n}%",up_power_name:"Power Grip",up_power_desc:"The same pull sends your stone flying faster.",up_power_eff:"Max power +{n}%",up_bounce_name:"Elastic Shell",up_bounce_desc:"More bounce on impact, so opponents fly further.",up_bounce_eff:"Bounce +{n}%",up_aim_name:"Trajectory Guide",up_aim_desc:"Shows the direction and landing point while you pull back.",up_aim_eff:"Aim assist on",skin_basic:"Basic",skin_neon:"Neon",skin_gold:"Gold",skin_magma:"Magma",skin_aurora:"Aurora",purchased:"Purchased!",reward_coin:"🪙 +{n}",reward_rp:"{n} RP",reward_none:"No reward",shop_badge_new:"NEW"},
-zh:{stat_wins:"总胜场",stat_rate:"胜率",stat_streak:"最高连胜",stat_time:"游戏时长",menu_practice_title:"练习",menu_practice_desc:"自由设置人数、棋子数量和AI难度",menu_battle_title:"对战",menu_battle_desc:"与AI或真人一较高下",menu_shop_title:"商店",menu_shop_desc:"用金币强化棋子、更换皮肤",practice_screen_title:"练习",practice_intro:"拉回你的棋子然后松开，即可向反方向弹出。\n把对方的棋子击出场外，坚持到最后。",field_players:"玩家人数 (2~8)",field_stones:"每人棋子数",field_map:"选择地图",field_ai_level:"AI难度",field_players_list_title:"玩家",field_players_list_desc:"设为AI后由电脑代为瞄准",btn_start:"开始",battle_ai_title:"AI对战",battle_ai_desc:"2~4人 · 你与AI对战 · 不影响排位",ai_intro:"你将与AI对战。",field_ai_total:"总人数(2~4人，含你自己)",field_online_players:"期望比赛人数(2~4人)",btn_find_match:"寻找对战",search_sub:"正在寻找相同人数的玩家。",search_connecting:"正在连接服务器...",search_waiting:"正在匹配对手...",search_fail:"无法连接服务器，请稍后再试。",search_title_count:"正在寻找对战 ({n}人)",btn_cancel:"取消",conn_connected:"已连接",conn_disconnected:"连接已断开",turn_mine:"轮到你了",turn_other:"轮到{name}",hint_default:"拉回你的棋子然后松开即可弹出",hint_defeated:"你的棋子已全部出局",exit_title:"要离开吗？",exit_body:"要离开游戏返回主菜单吗？\n进行中的对局将会消失。",btn_leave:"离开",result_sub:"对局已结束",btn_again:"再来一局",btn_menu:"返回主菜单",btn_go_shop:"前往商店",map_classic_name:"经典",map_classic_desc:"标准",map_ice_name:"冰面",map_ice_desc:"湿滑",map_bumper_name:"弹跳",map_bumper_desc:"随机弹射装置",map_mini_name:"迷你",map_mini_desc:"窄板",ai_easy:"简单",ai_normal:"普通",ai_hard:"困难",player_me:"我",player_n:"玩家{n}",ai_n:"AI {n}",coin_insufficient:"金币不足(需要{n}枚)",opp_left_toast:"对手已离开",disconnect_end:"对手离开，对局已结束",ws_not_set:"⚠ 尚未设置WS_URL",win_reward_toast:"胜利！+{n}金币",rank_bronze:"青铜",rank_silver:"白银",rank_gold:"黄金",rank_platinum:"铂金",rank_diamond:"钻石",stones_unit:"{n}颗",nick_placeholder:"昵称",battle_casual_title:"普通对战",battle_casual_desc:"2~4人与真实玩家轻松对战 · 不影响排位",battle_rank_title:"排位赛",battle_rank_desc:"2~4人与真实玩家一较高下 · 胜负影响排位分",online_intro_casual:"与真实玩家进行的普通对战，胜负不影响排位。",online_intro_rank:"与真实玩家进行的排位赛，胜负会增减你的排位分。",result_draw:"平局",result_win:"胜利",result_lose:"失败",practice_end:"练习结束",toggle_music:"音乐",toggle_sfx:"音效",shop_tab_upgrade:"棋子强化",shop_tab_skin:"皮肤",shop_note_upgrade:"强化仅在练习和AI对战中对你的棋子生效。\n线上对战为保证公平，所有人使用相同的基础属性。",shop_note_skin:"皮肤在所有模式中都会生效。",buy:"购买",owned:"已拥有",equip:"装备",equipped:"已装备",maxed:"满级",level_of:"Lv.{a}/{b}",up_mass_name:"钢芯",up_mass_desc:"棋子更重，推得更狠也更难被推动，但弹出速度略慢。",up_mass_eff:"重量 +{n}%",up_grip_name:"防滑涂层",up_grip_desc:"棋子更快停下，不容易滑出场外。",up_grip_eff:"制动 +{n}%",up_power_name:"力量握把",up_power_desc:"相同拉距下飞得更快。",up_power_eff:"最大力量 +{n}%",up_bounce_name:"弹性外壳",up_bounce_desc:"碰撞反弹更强，把对手弹得更远。",up_bounce_eff:"反弹 +{n}%",up_aim_name:"预测瞄准线",up_aim_desc:"拉动时显示飞行方向与落点。",up_aim_eff:"瞄准辅助开启",skin_basic:"基础",skin_neon:"霓虹",skin_gold:"黄金",skin_magma:"熔岩",skin_aurora:"极光",purchased:"购买成功！",reward_coin:"🪙 +{n}",reward_rp:"{n} RP",reward_none:"无奖励",shop_badge_new:"NEW"}};
+ko:{stat_wins:"총 승리",stat_rate:"승률",stat_streak:"최고 연승",stat_time:"플레이 시간",menu_practice_title:"연습",menu_practice_desc:"인원, 알 개수, AI 여부까지 자유롭게 설정해서 즐겨요",menu_battle_title:"대전",menu_battle_desc:"AI 또는 다른 사람과 진짜 대결을 펼쳐요",menu_shop_title:"상점",menu_shop_desc:"모은 코인으로 알을 강화하고 스킨을 바꿔요",practice_screen_title:"연습",practice_intro:"둥근 판 위에서 내 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요.
+다른 알을 판 밖으로 쳐내고 마지막까지 남으세요.",field_players:"플레이어 수 (2~8명)",field_stones:"알 개수 (1인당)",field_map:"맵 선택",field_ai_level:"AI 난이도",field_players_list_title:"플레이어",field_players_list_desc:"AI로 설정하면 컴퓨터가 대신 조준해요",btn_start:"시작하기",battle_ai_title:"AI 대전",battle_ai_desc:"2~4인 · 나 1명 + AI와 대결해요 · 랭크에 영향 없음",ai_intro:"나 1명과 AI가 맞붙어요.",field_ai_total:"전체 인원 (2~4명, 나 1명 + AI)",field_online_players:"희망 매치 인원 (2~4명)",btn_find_match:"대전 검색",search_sub:"같은 인원수의 플레이어를 찾고 있어요.",search_connecting:"서버에 연결하는 중...",search_waiting:"매칭 상대를 찾는 중...",search_fail:"서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요.",search_title_count:"대전 검색 중 ({n}인 매치)",btn_cancel:"취소",conn_connected:"연결됨",conn_disconnected:"연결 끊김",turn_mine:"내 차례",turn_other:"{name}의 차례",hint_default:"내 알을 당겼다 놓으면 반대쪽으로 튕겨 나가요",hint_defeated:"내 알이 모두 나갔어요",exit_title:"나가시겠어요?",exit_body:"게임을 나가고 메인 메뉴로 돌아갈까요?
+진행 중인 대결은 사라져요.",btn_leave:"나가기",result_sub:"대결이 끝났어요",btn_again:"다시하기",btn_menu:"메인 메뉴로",btn_go_shop:"상점 가기",map_classic_name:"클래식",map_classic_desc:"표준",map_ice_name:"빙판",map_ice_desc:"미끄러움",map_bumper_name:"범퍼",map_bumper_desc:"랜덤 튕김 장치",map_mini_name:"미니",map_mini_desc:"특수 · 좁은 판",ai_easy:"쉬움",ai_normal:"보통",ai_hard:"어려움",player_me:"나",player_n:"플레이어 {n}",ai_n:"AI {n}",coin_insufficient:"코인이 부족해요 ({n}코인 필요)",opp_left_toast:"상대가 나갔어요",disconnect_end:"상대방이 나가서 대결이 종료됐어요",ws_not_set:"⚠ WS_URL이 아직 설정되지 않았어요",win_reward_toast:"승리! +{n} 코인",rank_bronze:"브론즈",rank_silver:"실버",rank_gold:"골드",rank_platinum:"플래티넘",rank_diamond:"다이아",stones_unit:"{n}개",nick_placeholder:"닉네임",battle_casual_title:"일반전",battle_casual_desc:"2~4인 실제 플레이어와 부담없이 즐겨요 · 랭크에 영향 없음",battle_rank_title:"랭크전",battle_rank_desc:"2~4인 실제 플레이어와 겨뤄 레이팅을 올려요 · 승패가 랭크에 반영돼요",online_intro_casual:"실제 플레이어와 부담없이 즐기는 일반전이에요. 승패가 랭크에 영향을 주지 않아요.",online_intro_rank:"실제 플레이어와 레이팅을 걸고 겨루는 랭크전이에요. 승패에 따라 레이팅이 오르내려요.",result_draw:"무승부",result_win:"승리",result_lose:"패배",practice_end:"연습 종료",toggle_music:"음악",toggle_sfx:"효과음",shop_tab_upgrade:"알 강화",shop_tab_skin:"스킨",shop_note_upgrade:"강화는 연습과 AI 대전에서 내 알에 적용돼요.
+온라인 대전은 공정함을 위해 모두 같은 기본 성능으로 겨뤄요.",shop_note_skin:"스킨은 모든 모드에서 내 알에 적용돼요.",buy:"구매",owned:"보유",equip:"장착",equipped:"장착 중",maxed:"최대",level_of:"Lv.{a}/{b}",up_mass_name:"강철 심지",up_mass_desc:"알이 무거워져 상대를 더 세게 밀고, 맞아도 덜 밀려요. 대신 발사 속도가 조금 느려져요.",up_mass_eff:"무게 +{n}%",up_grip_name:"논슬립 코팅",up_grip_desc:"내 알이 더 빨리 멈춰서 판 밖으로 미끄러져 나갈 위험이 줄어요.",up_grip_eff:"제동력 +{n}%",up_power_name:"파워 그립",up_power_desc:"같은 거리를 당겨도 더 빠르게 날아가요.",up_power_eff:"최대 파워 +{n}%",up_bounce_name:"탄성 코팅",up_bounce_desc:"부딪힐 때 반발력이 커져 상대를 더 멀리 날려보내요.",up_bounce_eff:"반발 +{n}%",up_aim_name:"예측 조준선",up_aim_desc:"당기는 동안 알이 날아갈 방향과 도달 지점을 보여줘요.",up_aim_eff:"조준 보조 켜짐",skin_basic:"기본",skin_neon:"네온",skin_gold:"골드",skin_magma:"마그마",skin_aurora:"오로라",purchased:"구매 완료!",reward_coin:"🪙 +{n}",reward_rp:"{n} RP",reward_none:"보상 없음",shop_badge_new:"NEW"},
+en:{stat_wins:"Total Wins",stat_rate:"Win Rate",stat_streak:"Best Streak",stat_time:"Play Time",menu_practice_title:"Practice",menu_practice_desc:"Set players, stones and AI however you like",menu_battle_title:"Battle",menu_battle_desc:"Face off against AI or real players",menu_shop_title:"Shop",menu_shop_desc:"Spend coins on stone upgrades and skins",practice_screen_title:"Practice",practice_intro:"Pull your stone back and release to flick it the other way.
+Knock the other stones off the board and be the last one standing.",field_players:"Players (2–8)",field_stones:"Stones per player",field_map:"Select Map",field_ai_level:"AI Difficulty",field_players_list_title:"Players",field_players_list_desc:"Set to AI to let the computer aim for you",btn_start:"Start",battle_ai_title:"AI Battle",battle_ai_desc:"2–4 players · You vs AI · Doesn't affect rank",ai_intro:"You face off against AI.",field_ai_total:"Total players (2–4, you + AI)",field_online_players:"Desired match size (2–4)",btn_find_match:"Find Match",search_sub:"Looking for players with the same match size.",search_connecting:"Connecting to server...",search_waiting:"Searching for opponents...",search_fail:"Couldn't connect to the server. Please try again shortly.",search_title_count:"Finding match ({n}-player)",btn_cancel:"Cancel",conn_connected:"Connected",conn_disconnected:"Disconnected",turn_mine:"Your turn",turn_other:"{name}'s turn",hint_default:"Pull back your stone and release to flick it",hint_defeated:"All of your stones are out",exit_title:"Leave the match?",exit_body:"Leave the game and return to the main menu?
+Your ongoing match will be lost.",btn_leave:"Leave",result_sub:"The match has ended",btn_again:"Play Again",btn_menu:"Main Menu",btn_go_shop:"Go to Shop",map_classic_name:"Classic",map_classic_desc:"Standard",map_ice_name:"Ice",map_ice_desc:"Slippery",map_bumper_name:"Bumper",map_bumper_desc:"Bounce pegs",map_mini_name:"Mini",map_mini_desc:"Narrow board",ai_easy:"Easy",ai_normal:"Normal",ai_hard:"Hard",player_me:"Me",player_n:"Player {n}",ai_n:"AI {n}",coin_insufficient:"Not enough coins ({n} needed)",opp_left_toast:"Opponent left",disconnect_end:"The match ended because your opponent left",ws_not_set:"⚠ WS_URL is not set yet",win_reward_toast:"Victory! +{n} coins",rank_bronze:"Bronze",rank_silver:"Silver",rank_gold:"Gold",rank_platinum:"Platinum",rank_diamond:"Diamond",stones_unit:"{n}",nick_placeholder:"Nickname",battle_casual_title:"Casual Match",battle_casual_desc:"2–4 players · Real opponents, no pressure · Doesn't affect rank",battle_rank_title:"Ranked Match",battle_rank_desc:"2–4 players · Compete for rating · Wins and losses affect your rank",online_intro_casual:"A casual match against real players. Results don't affect your rank.",online_intro_rank:"A ranked match against real players. Your rating goes up or down with the result.",result_draw:"Draw",result_win:"Victory",result_lose:"Defeat",practice_end:"Practice Over",toggle_music:"Music",toggle_sfx:"SFX",shop_tab_upgrade:"Upgrades",shop_tab_skin:"Skins",shop_note_upgrade:"Upgrades apply to your stones in Practice and AI Battle.
+Online matches use standard stats so everyone competes fairly.",shop_note_skin:"Skins apply to your stones in every mode.",buy:"Buy",owned:"Owned",equip:"Equip",equipped:"Equipped",maxed:"Max",level_of:"Lv.{a}/{b}",up_mass_name:"Steel Core",up_mass_desc:"A heavier stone pushes harder and gets pushed less. Slightly slower off the flick.",up_mass_eff:"Weight +{n}%",up_grip_name:"Non-slip Coating",up_grip_desc:"Your stone slows down sooner, so it's less likely to slide off the board.",up_grip_eff:"Braking +{n}%",up_power_name:"Power Grip",up_power_desc:"The same pull sends your stone flying faster.",up_power_eff:"Max power +{n}%",up_bounce_name:"Elastic Shell",up_bounce_desc:"More bounce on impact, so opponents fly further.",up_bounce_eff:"Bounce +{n}%",up_aim_name:"Trajectory Guide",up_aim_desc:"Shows the direction and landing point while you pull back.",up_aim_eff:"Aim assist on",skin_basic:"Basic",skin_neon:"Neon",skin_gold:"Gold",skin_magma:"Magma",skin_aurora:"Aurora",purchased:"Purchased!",reward_coin:"🪙 +{n}",reward_rp:"{n} RP",reward_none:"No reward",shop_badge_new:"NEW"},
+zh:{stat_wins:"总胜场",stat_rate:"胜率",stat_streak:"最高连胜",stat_time:"游戏时长",menu_practice_title:"练习",menu_practice_desc:"自由设置人数、棋子数量和AI难度",menu_battle_title:"对战",menu_battle_desc:"与AI或真人一较高下",menu_shop_title:"商店",menu_shop_desc:"用金币强化棋子、更换皮肤",practice_screen_title:"练习",practice_intro:"拉回你的棋子然后松开，即可向反方向弹出。
+把对方的棋子击出场外，坚持到最后。",field_players:"玩家人数 (2~8)",field_stones:"每人棋子数",field_map:"选择地图",field_ai_level:"AI难度",field_players_list_title:"玩家",field_players_list_desc:"设为AI后由电脑代为瞄准",btn_start:"开始",battle_ai_title:"AI对战",battle_ai_desc:"2~4人 · 你与AI对战 · 不影响排位",ai_intro:"你将与AI对战。",field_ai_total:"总人数(2~4人，含你自己)",field_online_players:"期望比赛人数(2~4人)",btn_find_match:"寻找对战",search_sub:"正在寻找相同人数的玩家。",search_connecting:"正在连接服务器...",search_waiting:"正在匹配对手...",search_fail:"无法连接服务器，请稍后再试。",search_title_count:"正在寻找对战 ({n}人)",btn_cancel:"取消",conn_connected:"已连接",conn_disconnected:"连接已断开",turn_mine:"轮到你了",turn_other:"轮到{name}",hint_default:"拉回你的棋子然后松开即可弹出",hint_defeated:"你的棋子已全部出局",exit_title:"要离开吗？",exit_body:"要离开游戏返回主菜单吗？
+进行中的对局将会消失。",btn_leave:"离开",result_sub:"对局已结束",btn_again:"再来一局",btn_menu:"返回主菜单",btn_go_shop:"前往商店",map_classic_name:"经典",map_classic_desc:"标准",map_ice_name:"冰面",map_ice_desc:"湿滑",map_bumper_name:"弹跳",map_bumper_desc:"随机弹射装置",map_mini_name:"迷你",map_mini_desc:"窄板",ai_easy:"简单",ai_normal:"普通",ai_hard:"困难",player_me:"我",player_n:"玩家{n}",ai_n:"AI {n}",coin_insufficient:"金币不足(需要{n}枚)",opp_left_toast:"对手已离开",disconnect_end:"对手离开，对局已结束",ws_not_set:"⚠ 尚未设置WS_URL",win_reward_toast:"胜利！+{n}金币",rank_bronze:"青铜",rank_silver:"白银",rank_gold:"黄金",rank_platinum:"铂金",rank_diamond:"钻石",stones_unit:"{n}颗",nick_placeholder:"昵称",battle_casual_title:"普通对战",battle_casual_desc:"2~4人与真实玩家轻松对战 · 不影响排位",battle_rank_title:"排位赛",battle_rank_desc:"2~4人与真实玩家一较高下 · 胜负影响排位分",online_intro_casual:"与真实玩家进行的普通对战，胜负不影响排位。",online_intro_rank:"与真实玩家进行的排位赛，胜负会增减你的排位分。",result_draw:"平局",result_win:"胜利",result_lose:"失败",practice_end:"练习结束",toggle_music:"音乐",toggle_sfx:"音效",shop_tab_upgrade:"棋子强化",shop_tab_skin:"皮肤",shop_note_upgrade:"强化仅在练习和AI对战中对你的棋子生效。
+线上对战为保证公平，所有人使用相同的基础属性。",shop_note_skin:"皮肤在所有模式中都会生效。",buy:"购买",owned:"已拥有",equip:"装备",equipped:"已装备",maxed:"满级",level_of:"Lv.{a}/{b}",up_mass_name:"钢芯",up_mass_desc:"棋子更重，推得更狠也更难被推动，但弹出速度略慢。",up_mass_eff:"重量 +{n}%",up_grip_name:"防滑涂层",up_grip_desc:"棋子更快停下，不容易滑出场外。",up_grip_eff:"制动 +{n}%",up_power_name:"力量握把",up_power_desc:"相同拉距下飞得更快。",up_power_eff:"最大力量 +{n}%",up_bounce_name:"弹性外壳",up_bounce_desc:"碰撞反弹更强，把对手弹得更远。",up_bounce_eff:"反弹 +{n}%",up_aim_name:"预测瞄准线",up_aim_desc:"拉动时显示飞行方向与落点。",up_aim_eff:"瞄准辅助开启",skin_basic:"基础",skin_neon:"霓虹",skin_gold:"黄金",skin_magma:"熔岩",skin_aurora:"极光",purchased:"购买成功！",reward_coin:"🪙 +{n}",reward_rp:"{n} RP",reward_none:"无奖励",shop_badge_new:"NEW"}};
 function T(k,v){let s=I18N[currentLang]?.[k]??I18N.ko[k]??k;if(v)for(const x in v)s=s.split("{"+x+"}").join(v[x]);return s}
 function applyStaticI18n(){document.querySelectorAll("[data-i18n]").forEach(e=>e.textContent=T(e.dataset.i18n))}
 
@@ -508,28 +519,14 @@ document.addEventListener("visibilitychange",()=>{
 /* ============================================================
    저장소 / 프로필
 ============================================================ */
-const DEVICE_KEY="alkkagi_device_id_v1",ACCOUNT_KEY="alkkagi_account_v4";
+const DEVICE_KEY="alkkagi_device_id_v1";
 function makeId(){return (crypto?.randomUUID?.()||("dev-"+Date.now()+"-"+Math.random().toString(36).slice(2))).replace(/-/g,"").slice(0,24)}
+// 브라우저에는 계정 데이터가 아니라 서버 계정을 식별할 ID만 보관합니다.
 let deviceId=localStorage.getItem(DEVICE_KEY)||makeId();localStorage.setItem(DEVICE_KEY,deviceId);
 const DEFAULT_STATE={accountId:deviceId,nickname:"플레이어",wins:0,games:0,bestStreak:0,curStreak:0,playSeconds:0,coins:100,rankRating:1000,rankWins:0,rankGames:0,upgrades:{},skins:["basic"],skin:"basic"};
 const Storage={
- key:ACCOUNT_KEY,
- load(){
-  let d=JSON.parse(JSON.stringify(DEFAULT_STATE));
-  try{
-   const raw=localStorage.getItem(this.key);
-   if(raw){const x=JSON.parse(raw);if(x&&x.accountId===deviceId)d={...d,...x}}
-   // 구버전 계정 이전
-   const old=localStorage.getItem("alkkagi_account_v3");
-   if(!raw&&old){const x=JSON.parse(old);if(x&&x.accountId===deviceId)d={...d,...x,upgrades:{},skins:["basic"],skin:"basic"}}
-  }catch{}
-  if(!d.upgrades||typeof d.upgrades!=="object")d.upgrades={};
-  if(!Array.isArray(d.skins)||!d.skins.length)d.skins=["basic"];
-  if(!d.skins.includes(d.skin))d.skin="basic";
-  localStorage.setItem(this.key,JSON.stringify(d));
-  return d;
- },
- save(s){try{s.accountId=deviceId;localStorage.setItem(this.key,JSON.stringify(s))}catch{}}
+ load(){return JSON.parse(JSON.stringify(DEFAULT_STATE))},
+ save(){/* 계정 데이터는 서버가 저장합니다. */}
 };
 let stats=Storage.load(),sessionStart=Date.now();
 const NICK_KEY="alkkagi_nickname";
@@ -538,9 +535,9 @@ localStorage.setItem(NICK_KEY,myNickname);
 document.getElementById("profileName").onclick=()=>{
  Sound.play("ui");
  const n=prompt(T("nick_placeholder"),myNickname);
- if(n?.trim()){myNickname=n.trim().slice(0,12);localStorage.setItem(NICK_KEY,myNickname);stats.nickname=myNickname;Storage.save(stats);renderProfileName();if(netState.connected)wsSend({type:"set_name",name:myNickname})}
+ if(n?.trim()){myNickname=n.trim().slice(0,12);stats.nickname=myNickname;localStorage.setItem(NICK_KEY,myNickname);if(netState.connected)wsSend({type:"set_name",name:myNickname});if(netState.authed)wsSend({type:"set_account_nickname",name:myNickname});renderProfileName()}
 };
-function renderProfileName(){profileNameText.textContent=myNickname;stats.nickname=myNickname;Storage.save(stats)}
+function renderProfileName(){profileNameText.textContent=myNickname;stats.nickname=myNickname}
 const RANK_TIERS=[[0,"rank_bronze","🥉"],[1030,"rank_silver","🥈"],[1120,"rank_gold","🥇"],[1250,"rank_platinum","💠"],[1400,"rank_diamond","💎"]];
 function tierIndex(r){let i=0;RANK_TIERS.forEach((t,k)=>{if(r>=t[0])i=k});return i}
 function rankFromRating(r){return T(RANK_TIERS[tierIndex(r)][1])}
@@ -563,10 +560,6 @@ function coinDelta(n){
  coinLabel.classList.remove("coin-flash");void coinLabel.offsetWidth;coinLabel.classList.add("coin-flash");
  const e=document.createElement("div");e.className=n>=0?"coin-plus":"coin-minus";e.textContent=(n>=0?"+":"")+n+" 🪙";
  document.body.appendChild(e);setTimeout(()=>e.remove(),1200);
-}
-function trySpendCoins(a){
- if(stats.coins<a){showToast(T("coin_insufficient",{n:a}));Sound.play("back");return false}
- stats.coins-=a;Storage.save(stats);refreshProfileUI();coinDelta(-a);return true;
 }
 function upLevel(id){return stats.upgrades[id]||0}
 function upCost(u){const l=upLevel(u.id);return l>=u.max?null:u.costs[l]}
@@ -672,39 +665,24 @@ function skinById(id){return SKINS.find(s=>s.id===id)||SKINS[0]}
 async function buyUpgrade(u){
  const lv=upLevel(u.id),cost=upCost(u);
  if(cost===null)return;
- const ready=await connectAndAuth(4000);
- if(ready){
-  const res=await wsRequestOnce({type:"buy_upgrade",id:u.id},["buy_result"],6000);
-  if(!res||!res.ok){showToast(T("coin_insufficient",{n:cost}));Sound.play("back");renderShop();return}
-  applyServerAccount(res.account);Sound.play("buy");coinDelta(-cost);showToast(T("purchased"));
- }else{
-  if(stats.coins<cost){showToast(T("coin_insufficient",{n:cost}));Sound.play("back");return}
-  stats.coins-=cost;stats.upgrades[u.id]=lv+1;Storage.save(stats);
-  Sound.play("buy");coinDelta(-cost);showToast(T("purchased"));refreshProfileUI();
- }
- renderShop();
+ const ready=await connectAndAuth(5000);
+ if(!ready){showToast(T("search_fail"));return}
+ const res=await wsRequestOnce({type:"buy_upgrade",id:u.id},["buy_result"],6000);
+ if(!res||!res.ok){showToast(T("coin_insufficient",{n:cost}));Sound.play("back");renderShop();return}
+ applyServerAccount(res.account);Sound.play("buy");coinDelta(-cost);showToast(T("purchased"));renderShop();
 }
 async function buySkinOrEquip(sk){
  const owned=stats.skins.includes(sk.id),equipped=stats.skin===sk.id;
  if(equipped)return;
- const ready=await connectAndAuth(4000);
- if(owned){
-  if(ready){
-   const res=await wsRequestOnce({type:"equip_skin",id:sk.id},["buy_result"],6000);
-   if(res&&res.ok)applyServerAccount(res.account);
-  }else{stats.skin=sk.id;Storage.save(stats)}
-  Sound.play("ui");renderShop();return;
- }
- if(ready){
-  const res=await wsRequestOnce({type:"buy_skin",id:sk.id},["buy_result"],6000);
-  if(!res||!res.ok){showToast(T("coin_insufficient",{n:sk.cost}));Sound.play("back");renderShop();return}
-  applyServerAccount(res.account);Sound.play("buy");coinDelta(-sk.cost);showToast(T("purchased"));
- }else{
-  if(stats.coins<sk.cost){showToast(T("coin_insufficient",{n:sk.cost}));Sound.play("back");return}
-  stats.coins-=sk.cost;stats.skins.push(sk.id);stats.skin=sk.id;Storage.save(stats);
-  Sound.play("buy");coinDelta(-sk.cost);showToast(T("purchased"));refreshProfileUI();
- }
- renderShop();
+ const ready=await connectAndAuth(5000);
+ if(!ready){showToast(T("search_fail"));return}
+ const type=owned?"equip_skin":"buy_skin";
+ const res=await wsRequestOnce({type,id:sk.id},["buy_result"],6000);
+ if(!res||!res.ok){showToast(T("coin_insufficient",{n:sk.cost}));Sound.play("back");renderShop();return}
+ const charged=!owned;
+ applyServerAccount(res.account);
+ if(charged)coinDelta(-sk.cost);
+ Sound.play(charged?"buy":"ui");showToast(T(charged?"purchased":"equipped"));renderShop();
 }
 function renderShop(){
  document.querySelectorAll("#shopTabs .chip").forEach(c=>c.classList.toggle("active",c.dataset.tab===shopTab));
@@ -772,23 +750,30 @@ class Engine{
   this.onHit=null;this.onOut=null;this.onShoot=null;this.onBumper=null;
   this._genStones();
  }
- /* 결정적(deterministic) 배치 — 무한 루프/프리즈 방지 */
+ /* 랜덤 배치 — 충돌 없이 원판 안쪽에 무작위 배치 */
  _genStones(){
-  const maxR=this.boardR-this.stoneR*1.3;
-  const ringR=maxR*(this.stoneCount>2?.68:.74);
+  const maxR=this.boardR-this.stoneR*1.35;
   const pos=[];
-  for(let p=0;p<this.playerCount;p++){
-   const base=-Math.PI/2+Math.PI*2*p/this.playerCount;
-   const sector=Math.PI*2/this.playerCount;
-   const spread=Math.min(sector*.62,(this.stoneR*2.5*Math.max(0,this.stoneCount-1))/Math.max(1,ringR));
-   for(let k=0;k<this.stoneCount;k++){
-    const t=this.stoneCount===1?0:(k/(this.stoneCount-1)-.5);
-    const a=base+t*spread;
-    const r=ringR+(this.stoneCount>2?((k%2)?-this.stoneR*1.05:this.stoneR*.35):0);
-    pos.push({x:this.cx+Math.cos(a)*r,y:this.cy+Math.sin(a)*r,owner:p});
+  const minGap=this.stoneR*2.12;
+  const total=this.playerCount*this.stoneCount;
+  for(let id=0;id<total;id++){
+   const owner=Math.floor(id/this.stoneCount);
+   let placed=false;
+   for(let attempt=0;attempt<700&&!placed;attempt++){
+    const a=Math.random()*Math.PI*2;
+    const r=Math.sqrt(Math.random())*maxR*.92;
+    const p={x:this.cx+Math.cos(a)*r,y:this.cy+Math.sin(a)*r,owner};
+    let ok=true;
+    for(const q of pos){if(Math.hypot(p.x-q.x,p.y-q.y)<minGap){ok=false;break}}
+    if(ok){for(const b of this.bumpers){if(Math.hypot(p.x-b.x,p.y-b.y)<b.r+this.stoneR*1.25){ok=false;break}}}
+    if(ok){pos.push(p);placed=true}
+   }
+   if(!placed){
+    const a=(id*2.399963229728653)% (Math.PI*2);
+    const r=maxR*.55;
+    pos.push({x:this.cx+Math.cos(a)*r,y:this.cy+Math.sin(a)*r,owner});
    }
   }
-  const minGap=this.stoneR*2.08;
   for(let it=0;it<160;it++){
    let moved=false;
    for(let i=0;i<pos.length;i++){
@@ -1031,7 +1016,7 @@ function drawBoard(e,aim){
 /* ============================================================
    네트워크
 ============================================================ */
-const netState={ws:null,connected:false,authed:false,mode:"idle",clientId:null,roomId:null,you:null,hostId:null,players:[],you_index_cached:null,isHost:false,ranked:false,pendingHandlers:[]};
+const netState={ws:null,connected:false,authed:false,mode:"idle",clientId:null,accountId:null,roomId:null,you:null,hostId:null,players:[],you_index_cached:null,isHost:false,ranked:false,pendingHandlers:[]};
 function isServerReady(){return netState.connected&&netState.authed}
 function wsRequestOnce(msg,matchTypes,timeoutMs=6000){
  return new Promise(resolve=>{
@@ -1057,13 +1042,13 @@ function connectAndAuth(timeoutMs=5000){
 function applyServerAccount(acc){
  if(!acc)return;
  netState.authed=true;
- stats.coins=acc.coins;stats.wins=acc.wins;stats.games=acc.games;stats.bestStreak=acc.bestStreak;
- stats.rankRating=acc.rankRating;stats.rankWins=acc.rankWins;stats.rankGames=acc.rankGames;
- stats.upgrades=acc.upgrades||{};stats.skins=acc.skins&&acc.skins.length?acc.skins:["basic"];
+ stats={...DEFAULT_STATE,...acc};
+ stats.accountId=deviceId;
+ stats.upgrades=acc.upgrades&&typeof acc.upgrades==="object"?acc.upgrades:{};
+ stats.skins=Array.isArray(acc.skins)&&acc.skins.length?acc.skins:["basic"];
  stats.skin=stats.skins.includes(acc.skin)?acc.skin:"basic";
  if(acc.nickname&&acc.nickname!==myNickname){myNickname=acc.nickname;localStorage.setItem(NICK_KEY,myNickname);profileNameText.textContent=myNickname}
- stats.nickname=myNickname;
- Storage.save(stats);refreshProfileUI();renderShop();
+ renderProfileName();refreshProfileUI();renderShop();
 }
 function renderRewardPills(){
  resultRewards.innerHTML="";
@@ -1088,7 +1073,7 @@ function connectWS(ok,fail){
   ws.onopen=()=>{opened=true;clearTimeout(t);netState.connected=true;setConnStatus(true);wsSend({type:"set_name",name:myNickname});ok?.()};
   ws.onclose=()=>{netState.connected=false;netState.authed=false;setConnStatus(false);if(!opened)fail?.("closed")};
   ws.onerror=()=>setConnStatus(false);
-  ws.onmessage=e=>{try{handleNetMessage(JSON.parse(e.data))}catch{}};
+  ws.onmessage=e=>{try{handleNetMessage(JSON.parse(e.data))}catch(err){console.warn("network message error",err)}};
  }catch{fail?.("exception")}
 }
 function setConnStatus(ok){connDot.classList.toggle("bad",!ok);connLabel.textContent=ok?T("conn_connected"):T("conn_disconnected")}
@@ -1138,31 +1123,46 @@ function handleNetMessage(m){
   case"match_found":
    netState.mode="in_room";netState.roomId=m.roomId;netState.you=m.playerIndex;netState.hostId=m.hostId;
    netState.players=m.players;netState.isHost=m.isHost;netState.ranked=!!m.ranked;
-   computeMyIndex();startOnlineGame(m);break;
+   computeMyIndex();break;
+  case"search_cancelled":netState.mode="idle";break;
+  case"game_started":
+   netState.mode="in_room";
+   netState.roomId=m.roomId||netState.roomId;
+   if(m.players)netState.players=m.players;
+   if(m.playerIndex!=null)netState.you=m.playerIndex;
+   netState.ranked=!!m.ranked;
+   if(m.players)computeMyIndex();
+   startRemoteGame(m);
+   break;
+  case"game_create_result":
+   if(!m.ok)showToast(m.reason==="insufficient_funds"?T("coin_insufficient",{n:m.cost||0}):T("search_fail"));
+   break;
   case"match_cancelled":
    showToast(m.reason==="insufficient_funds"?T("coin_insufficient",{n:GAME_COST[netState.ranked?"rank":"casual"]}):T("search_fail"));
    netState.mode="idle";go("onlineConfig");break;
   case"state":
-   if(game.engine&&netState.mode==="in_room"){game.engine.applyState(m);renderHUD();checkLocalDefeat()}
+   if(game.engine&&netState.mode==="in_room"){game.engine.applyState(m.state||m);renderHUD();checkLocalDefeat();}
    break;
   case"game_over":
-   if(game.mode==="online")onlineGameOver(m.winner??null,!!m.draw);
+   if(game.mode)remoteGameOver(m.winner??null,!!m.draw,m.reward||null,m.rp||null);
    break;
   case"player_left":
-   showToast(T("opp_left_toast"));if(game.mode==="online")forceEndOnDisconnect();break;
+   showToast(T("opp_left_toast"));if(game.mode==="online")forceEndOnDisconnect();
+   break;
+  case"host_changed":
+   netState.hostId=m.hostId;break;
  }
 }
 function forceEndOnDisconnect(){
- if(!game.active)return;game.active=false;clearInterval(game.turnTimer);
- showResult(T("disconnect_end"),null);
+ if(!game.active)return;game.active=false;clearInterval(game.turnTimer);showResult(T("disconnect_end"),null);
 }
 
 /* ============================================================
-   게임 진행
+   게임 진행 — 물리 엔진은 서버에서만 실행
 ============================================================ */
 const game={engine:null,mode:null,names:[],aiFlags:[],aiLevel:"normal",dragging:null,turnTimer:null,turnRemain:15,
  _reportedOver:false,matchId:null,penaltyApplied:false,active:false,gen:0,aiTimer:null,ranked:false,
- localDefeated:false,aimAssist:false,lastFrame:0,rewards:null};
+ localDefeated:false,aimAssist:false,lastFrame:0,rewards:null,_ptAnchor:0};
 let aimInfo=null,lastTurn=-1,lastBroadcast=0;
 
 function bindEngineSounds(e){
@@ -1175,91 +1175,55 @@ function clearAimState(){
  game.dragging=null;aimInfo=null;
  powerWrap.classList.remove("show");powerFill.style.width="0";powerPct.textContent="0%";
 }
-function startPracticeGame(){
- const n=stepConfig.players.val,sc=stepConfig.stones.val;
- enterGameScreen(()=>{
-  game.mode="practice";game.ranked=false;
-  const b=myBuffs();game.aimAssist=b.aim;
-  game.engine=new Engine({map:practiceState.map,playerCount:n,stoneCount:sc,boardPx,buffSlot:0,buffs:b});
-  game.engine.skinSlot=0;
-  game.names=Array.from({length:n},(_,i)=>T("player_n",{n:i+1}));
-  game.aiFlags=practiceState.aiFlags.slice(0,n);
-  game.aiLevel=practiceState.level;
- });
+async function startPracticeGame(){
+ const ready=await connectAndAuth(5000);if(!ready){showToast(T("search_fail"));return}
+ const res=await wsRequestOnce({type:"create_game",mode:"practice",playerCount:stepConfig.players.val,stoneCount:stepConfig.stones.val,map:practiceState.map,aiFlags:practiceState.aiFlags.slice(0,stepConfig.players.val),aiLevel:practiceState.level},["game_started","game_create_result"],8000);
+ if(!res||res.type!=="game_started")return;
 }
-function launchAIGame(economyMode){
- const n=stepConfig.aiPlayers.val;
- enterGameScreen(()=>{
-  game.mode="ai";game.ranked=false;game.economyMode=economyMode;
-  const b=myBuffs();game.aimAssist=b.aim;
-  game.engine=new Engine({map:aiState.map,playerCount:n,stoneCount:2,boardPx,buffSlot:0,buffs:b});
-  game.engine.skinSlot=0;
-  game.names=Array.from({length:n},(_,i)=>i?T("ai_n",{n:i}):T("player_me"));
-  game.aiFlags=Array.from({length:n},(_,i)=>i>0);
-  game.aiLevel=aiState.level;
- });
-}
-/* 코인·기록의 진실 소스는 서버. 연결되면 서버가 입장료를 검증·차감하고, 오프라인일 때만 로컬로 대체 처리 */
 async function startAIGame(){
- const ready=await connectAndAuth(4500);
- if(ready){
-  const res=await wsRequestOnce({type:"spend_ai"},["spend_result"],6000);
-  if(!res||!res.ok){showToast(T("coin_insufficient",{n:GAME_COST.ai}));Sound.play("back");return}
-  applyServerAccount(res.account);
-  launchAIGame("server");
- }else{
-  if(!trySpendCoins(GAME_COST.ai))return;
-  launchAIGame("local");
- }
+ const ready=await connectAndAuth(5000);if(!ready){showToast(T("search_fail"));return}
+ const res=await wsRequestOnce({type:"create_game",mode:"ai",playerCount:stepConfig.aiPlayers.val,stoneCount:2,map:aiState.map,aiFlags:Array.from({length:stepConfig.aiPlayers.val},(_,i)=>i>0),aiLevel:aiState.level},["game_started","game_create_result"],8000);
+ if(!res||res.type!=="game_started")return;
 }
-function startOnlineGame(m){
- // 입장료는 매칭 시점에 서버가 이미 차감했음 — 클라이언트는 물리도 비용도 다시 계산하지 않음
+function startRemoteGame(m){
+ const mode=m.mode||"online";
  enterGameScreen(()=>{
-  game.mode="online";game.ranked=!!netState.ranked;game.economyMode="server";game.aimAssist=myBuffs().aim;
-  // 온라인은 공정성을 위해 강화 미적용 (스킨만 적용)
-  game.engine=new Engine({map:m.map,playerCount:m.players.length,stoneCount:m.stoneCount,boardPx,buffSlot:-1,buffs:null});
-  game.engine.skinSlot=netState.you_index_cached;
-  game.names=m.players.map(p=>p.clientId===netState.clientId?T("player_me"):p.name);
-  game.aiFlags=game.names.map(()=>false);
+  game.mode=mode;game.ranked=!!m.ranked;game.economyMode="server";game.aimAssist=(mode!=="online"&&upLevel("aim")>0);
+  const viewBuffs=mode!=="online"?myBuffs():null;
+  game.engine=new Engine({map:m.map,playerCount:m.playerCount||m.players?.length||2,stoneCount:m.stoneCount||2,boardPx,buffSlot:mode!=="online"?0:-1,buffs:viewBuffs});
+  game.engine.skinSlot=(mode==="online"?netState.you_index_cached:0);
+  game.names=m.names||(m.players||[]).map((p,i)=>p.clientId===netState.clientId?T("player_me"):p.name||T("player_n",{n:i+1}));
+  game.aiFlags=Array.isArray(m.aiFlags)?m.aiFlags.slice():game.names.map(()=>false);
+  game.aiLevel=m.aiLevel||"normal";
+  if(m.state)game.engine.applyState(m.state);
+  if(m.account)applyServerAccount(m.account);
  });
  connDot.style.display="flex";
 }
+function startOnlineGame(m){startRemoteGame(m)}
 function enterGameScreen(fn){
- // 이전 게임 잔여 상태 완전 정리 (프리즈/유령 루프 방지)
  clearTimeout(game.aiTimer);clearInterval(game.turnTimer);
  game.gen++;game.active=true;game.localDefeated=false;game._reportedOver=false;
- game.penaltyApplied=false;game.rewards=null;game.economyMode=null;game.suppressNextAccountToast=false;
+ game.penaltyApplied=false;game.rewards=null;game.economyMode="server";game.suppressNextAccountToast=false;
  game.matchId="m-"+Date.now()+"-"+Math.random().toString(36).slice(2);
+ game._ptAnchor=Date.now();
  clearAimState();lastTurn=-1;toastStack.innerHTML="";exitConfirm.classList.remove("show");
  go("game");
  fitCanvas();
  fn();
  if(game.engine){game.engine.skinSlot=game.engine.skinSlot??localPlayerIndex();bindEngineSounds(game.engine)}
- connDot.style.display=game.mode==="online"?"flex":"none";
+ connDot.style.display="flex";
  gameHint.textContent=T("hint_default");
  buildHudPlayers();renderHUD();drawBoard(game.engine,null);
- const myGen=game.gen;
- game.lastFrame=performance.now();
- requestAnimationFrame(()=>loop(myGen));
- // 레이아웃이 늦게 잡히는 기기 대응: 다음 프레임에 크기 재확인
- requestAnimationFrame(()=>{
-  if(game.gen!==myGen)return;
-  const want=measureBoard();
-  if(Math.abs(want-boardPx)>1){fitCanvas();rescaleEngine(game.engine,boardPx)}
-  drawBoard(game.engine,null);
- });
- if(game.mode!=="online")maybeAiTurn();
+ const myGen=game.gen;game.lastFrame=performance.now();requestAnimationFrame(()=>loop(myGen));
+ requestAnimationFrame(()=>{if(game.gen!==myGen)return;const want=measureBoard();if(Math.abs(want-boardPx)>1){fitCanvas();rescaleEngine(game.engine,boardPx)}drawBoard(game.engine,null)});
  resetTurnTimer();
 }
-/* 워치독: 캔버스가 비었거나 루프가 멈추면 복구 */
 setInterval(()=>{
  if(!screens.game.classList.contains("active")||!game.active||!game.engine)return;
  const want=measureBoard();
  if(canvas.width<10||Math.abs(want-boardPx)>2){fitCanvas();rescaleEngine(game.engine,boardPx);drawBoard(game.engine,aimInfo)}
- if(performance.now()-game.lastFrame>1500){
-  const myGen=game.gen;game.lastFrame=performance.now();
-  requestAnimationFrame(()=>loop(myGen));
- }
+ if(performance.now()-game.lastFrame>1500){const myGen=game.gen;game.lastFrame=performance.now();requestAnimationFrame(()=>loop(myGen))}
 },1000);
 
 function buildHudPlayers(){
@@ -1286,194 +1250,99 @@ function updateTurnBanner(){
  if(e.turn!==lastTurn){
   lastTurn=e.turn;
   turnBanner.textContent=isMyTurn()?T("turn_mine"):T("turn_other",{name:game.names[e.turn]});
-  turnBanner.classList.add("show");
-  clearTimeout(turnBanner._t);turnBanner._t=setTimeout(()=>turnBanner.classList.remove("show"),1000);
+  turnBanner.classList.add("show");clearTimeout(turnBanner._t);turnBanner._t=setTimeout(()=>turnBanner.classList.remove("show"),1000);
   if(isMyTurn())Sound.play("turn");
   resetTurnTimer();
  }
 }
 function isMyTurn(){
  if(game.localDefeated||!game.engine)return false;
- return game.mode==="online"?game.engine.turn===netState.you_index_cached:!game.aiFlags[game.engine.turn];
+ if(game.mode==="online")return game.engine.turn===netState.you_index_cached;
+ return game.engine.turn>=0&&!game.aiFlags[game.engine.turn];
 }
 function resetTurnTimer(){
- clearInterval(game.turnTimer);
- game.turnRemain=TURN_TIME_LIMIT;timerRing.style.strokeDashoffset=0;
- if(game.mode==="practice")return;
+ clearInterval(game.turnTimer);game.turnRemain=TURN_TIME_LIMIT;timerRing.style.strokeDashoffset=0;
  const myGen=game.gen;
  game.turnTimer=setInterval(()=>{
   if(game.gen!==myGen){clearInterval(game.turnTimer);return}
   if(!game.engine||game.engine.moving||game.engine.winner!=null)return;
-  if(--game.turnRemain<=0){
-   clearInterval(game.turnTimer);
-   // 온라인 모드의 턴 시간 초과는 서버가 직접 판단해 state를 보내준다 — 클라이언트는 그저 기다림
-   if(game.mode!=="online"){game.engine.nextTurn();renderHUD();maybeAiTurn()}
-  }
+  if(--game.turnRemain<=0){clearInterval(game.turnTimer)}
   const r=Math.max(0,game.turnRemain/TURN_TIME_LIMIT);
   timerRing.style.strokeDashoffset=(97.4*(1-r)).toFixed(1);
  },1000);
 }
 
-/* ---- 입력 ---- */
+/* ---- 입력: 서버에만 발사 벡터 전송 ---- */
 canvas.addEventListener("pointerdown",e=>{
  Sound.unlock();
- const en=game.engine;
- if(!en||en.moving||en.winner!=null||!isMyTurn())return;
+ const en=game.engine;if(!en||en.moving||en.winner!=null||!isMyTurn())return;
  const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
- const target=en.stones.filter(s=>s.alive&&s.owner===en.turn)
-   .sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];
+ const target=en.stones.filter(s=>s.alive&&s.owner===en.turn).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];
  if(!target||Math.hypot(target.x-x,target.y-y)>target.r*2.1)return;
- game.dragging=target;aimInfo={stone:target,px:x,py:y};
- powerWrap.classList.add("show");
- try{canvas.setPointerCapture(e.pointerId)}catch{}
+ game.dragging=target;aimInfo={stone:target,px:x,py:y};powerWrap.classList.add("show");try{canvas.setPointerCapture(e.pointerId)}catch{}
 });
 canvas.addEventListener("pointermove",e=>{
  if(!game.dragging||!aimInfo)return;
- const r=canvas.getBoundingClientRect();
- aimInfo.px=e.clientX-r.left;aimInfo.py=e.clientY-r.top;
- const maxPull=MAX_PULL*(game.engine?game.engine.scale:1);
- const d=Math.min(Math.hypot(game.dragging.x-aimInfo.px,game.dragging.y-aimInfo.py),maxPull);
- const p=Math.round(d/maxPull*100);
- powerFill.style.width=p+"%";powerPct.textContent=p+"%";
- drawBoard(game.engine,aimInfo);
+ const r=canvas.getBoundingClientRect();aimInfo.px=e.clientX-r.left;aimInfo.py=e.clientY-r.top;
+ const maxPull=MAX_PULL*(game.engine?game.engine.scale:1),d=Math.min(Math.hypot(game.dragging.x-aimInfo.px,game.dragging.y-aimInfo.py),maxPull),p=Math.round(d/maxPull*100);
+ powerFill.style.width=p+"%";powerPct.textContent=p+"%";drawBoard(game.engine,aimInfo);
 });
 function releaseAim(){
  if(!game.dragging||!aimInfo||!game.engine){clearAimState();return}
- const dx=game.dragging.x-aimInfo.px,dy=game.dragging.y-aimInfo.py;
- const id=game.dragging.id;
- clearAimState();
+ const dx=game.dragging.x-aimInfo.px,dy=game.dragging.y-aimInfo.py,id=game.dragging.id;clearAimState();
  if(Math.hypot(dx,dy)>=4*game.engine.scale){
-  if(game.mode==="online"){
-   wsSend({type:"shoot",stoneId:id,dx:dx/game.engine.boardPx,dy:dy/game.engine.boardPx});
-  }
-  game.engine.shoot(id,dx,dy); // 로컬 예측 — 서버 state가 곧 정확한 값으로 보정
+  wsSend({type:"shoot",stoneId:id,dx:dx/game.engine.boardPx,dy:dy/game.engine.boardPx});
  }
  drawBoard(game.engine,null);
 }
-canvas.addEventListener("pointerup",releaseAim);
-canvas.addEventListener("pointercancel",releaseAim);
+canvas.addEventListener("pointerup",releaseAim);canvas.addEventListener("pointercancel",releaseAim);
 
-/* ---- 메인 루프 ----
-   온라인 대전도 부드러운 화면을 위해 로컬로 물리를 미리 그려 보이지만(예측),
-   승패·보상·랭크는 오직 서버의 game_over/account_state 메시지로만 결정된다. */
+/* ---- 메인 루프: 상태를 계산하지 않고 서버 상태만 그립니다. ---- */
 function loop(myGen){
- if(game.gen!==myGen)return;
- game.lastFrame=performance.now();
- const e=game.engine;
- if(!e||!screens.game.classList.contains("active"))return;
- const was=e.moving;
- if(e.moving)e.step();
- checkLocalDefeat();
- const settled=was&&!e.moving;
- if(settled){
-  renderHUD();
-  if(game.mode!=="online"){
-   if(e.winner!=null||e.draw){onGameOver();return}
-   maybeAiTurn();
-  }
- }
+ if(game.gen!==myGen)return;game.lastFrame=performance.now();
+ const e=game.engine;if(!e||!screens.game.classList.contains("active"))return;
  drawBoard(e,game.localDefeated?null:aimInfo);
  requestAnimationFrame(()=>loop(myGen));
 }
-function maybeAiTurn(){
- const e=game.engine;
- if(!e||e.winner!=null||!game.aiFlags[e.turn])return;
- const myGen=game.gen;clearTimeout(game.aiTimer);
- game.aiTimer=setTimeout(()=>{
-  if(game.gen!==myGen||!game.engine||game.engine.moving||game.engine.winner!=null||!game.aiFlags[game.engine.turn])return;
-  const s=aiChooseShot(game.engine,game.engine.turn,game.aiLevel);
-  if(s)game.engine.shoot(s.stoneId,s.dx,s.dy);
-  else{game.engine.nextTurn();renderHUD();maybeAiTurn()}
- },500+Math.random()*400);
-}
 function checkLocalDefeat(){
- if(!game.engine||game.localDefeated||(game.mode!=="ai"&&game.mode!=="online"))return false;
+ if(!game.engine||game.localDefeated)return false;
  const idx=localPlayerIndex();
  if(idx==null||idx<0)return false;
  if(game.engine.aliveCountFor(idx)!==0)return false;
- game.localDefeated=true;
- clearAimState();
- gameHint.textContent=T("hint_defeated");
- if(game.mode==="online")return true; // 서버가 최종 결과를 결정할 때까지 대기 (화면은 계속 구경 가능)
- clearInterval(game.turnTimer);clearTimeout(game.aiTimer);
- stats.games++;stats.curStreak=0;
- stats.playSeconds+=(Date.now()-sessionStart)/1000;sessionStart=Date.now();
- Storage.save(stats);refreshProfileUI();
- game.rewards=null;
- Sound.play("lose");
- showResult(T("result_lose"),null);
- return true;
+ game.localDefeated=true;clearAimState();gameHint.textContent=T("hint_defeated");return true;
 }
-/* practice/ai 전용 — 온라인은 절대 여기 도달하지 않고 onlineGameOver()로만 종료된다 */
-function onGameOver(){
- if(!game.active)return;
- if(game.localDefeated){clearInterval(game.turnTimer);clearTimeout(game.aiTimer);return}
- game.active=false;clearInterval(game.turnTimer);clearTimeout(game.aiTimer);
- const isDraw=!!game.engine.draw;
- if(game.mode==="practice"){
-  game.rewards=null;Sound.play("win");
-  showResult(game.names[game.engine.winner]||T("practice_end"),game.engine.winner);return;
- }
- const w=game.engine.winner,iWon=!isDraw&&w===0;
- stats.games++;
- const reward=game.engine.playerCount*8;
- let gained=0;
- if(isDraw)stats.curStreak=0;
- else if(iWon){
-  stats.wins++;stats.curStreak++;stats.bestStreak=Math.max(stats.bestStreak,stats.curStreak);
-  stats.coins+=reward;gained=reward;coinDelta(reward);Sound.play("coin");
-  showToast(T("win_reward_toast",{n:reward}));
- }else stats.curStreak=0;
- stats.playSeconds+=(Date.now()-sessionStart)/1000;sessionStart=Date.now();
- Storage.save(stats);refreshProfileUI();
- game.rewards={coin:gained,rp:null};
- Sound.play(iWon?"win":"lose");
- if(game.economyMode==="server"){
-  // 서버에도 결과를 보고해 진짜 기록을 남긴다. 중복 안내를 막기 위해 다음 account_state 알림은 조용히 반영만 한다.
-  game.suppressNextAccountToast=true;
-  wsSend({type:"report_ai_result",won:iWon,playerCount:game.engine.playerCount});
- }
- setTimeout(()=>showResult(isDraw?T("result_draw"):(iWon?T("result_win"):T("result_lose")),w,isDraw),400);
-}
-/* 온라인 전용 — 서버의 game_over 메시지로만 호출됨 */
-function onlineGameOver(winner,isDraw){
+function remoteGameOver(winner,isDraw,reward,rp){
  if(!game.active)return;
  game.active=false;clearInterval(game.turnTimer);clearTimeout(game.aiTimer);
- const iWon=!isDraw&&winner===netState.you_index_cached;
+ const idx=localPlayerIndex(),iWon=!isDraw&&winner===idx;
+ game.rewards={coin:reward?.coin||0,rp:rp||reward?.rp||null};
  Sound.play(iWon?"win":"lose");
  showResult(isDraw?T("result_draw"):(iWon?T("result_win"):T("result_lose")),winner,isDraw);
 }
+function onGameOver(){return remoteGameOver(game.engine?.winner??null,!!game.engine?.draw,null,null)}
 function showResult(t,w,isDraw=false){
  resultTitle.textContent=t;
  const practice=game.mode==="practice";
- resultMedal.textContent=practice?"🎯":(isDraw?"🤝":(w===null?"🚩":(w===0||(game.mode==="online"&&w===netState.you_index_cached))?"🏆":"💥"));
- renderRewardPills();
- go("result");
+ resultMedal.textContent=practice?"🎯":(isDraw?"🤝":(w===null?"🚩":(w===0||(game.mode==="online"&&w===netState.you_index_cached)?"🏆":"💥")));
+ renderRewardPills();go("result");
 }
 function applyExitPenalty(){
- if(!game.active)return;
- if(game.mode!=="online"&&game.mode!=="ai")return;
- if(game.penaltyApplied)return;
- game.penaltyApplied=true;
- stats.coins=Math.max(0,stats.coins-5);Storage.save(stats);refreshProfileUI();coinDelta(-5);showToast("-5 🪙");
+ if(!game.active)return;if(game.mode!=="online"&&game.mode!=="ai")return;
+ wsSend({type:"leave_room",reason:"abandon"});
 }
 function cleanupGame(){
- reportPlaytime();
- game.active=false;game.gen++;
- clearInterval(game.turnTimer);clearTimeout(game.aiTimer);
- if(game.mode==="online"){wsSend({type:"leave_room"});netState.mode="idle"}
- clearAimState();
- game.engine=null;game.mode=null;lastTurn=-1;
- ctx.clearRect(0,0,boardPx,boardPx);
+ reportPlaytime();game.active=false;game.gen++;clearInterval(game.turnTimer);clearTimeout(game.aiTimer);
+ if(game.mode){wsSend({type:"leave_room"});netState.mode="idle"}
+ clearAimState();game.engine=null;game.mode=null;lastTurn=-1;ctx.clearRect(0,0,boardPx,boardPx);
 }
 btnStartPractice.onclick=()=>{Sound.unlock();startPracticeGame()};
 btnStartAI.onclick=()=>{Sound.unlock();startAIGame()};
 btnResultAgain.onclick=()=>{
- Sound.play("ui");
- const m=game.mode;
+ Sound.play("ui");const m=game.mode;
+ cleanupGame();
  if(m==="practice")startPracticeGame();
- else if(m==="ai"){cleanupGame();startAIGame()}
- else{cleanupGame();go("onlineConfig")}
+ else if(m==="ai")startAIGame();
+ else go("onlineConfig");
 };
 btnResultShop.onclick=()=>{Sound.play("ui");cleanupGame();renderShop();go("shop")};
 btnResultMenu.onclick=()=>{Sound.play("ui");cleanupGame();go("menu")};
@@ -1496,4 +1365,8 @@ applyStaticI18n();
 document.querySelectorAll("#langRow [data-lang]").forEach(e=>e.classList.toggle("active",e.dataset.lang===currentLang));
 renderProfileName();refreshProfileUI();renderSoundToggles();renderShop();fitCanvas();
 connectAndAuth(6000); // 서버와 계정을 백그라운드로 동기화 (실패해도 로컬 캐시로 계속 진행)
-</script></body></html>
+
+
+</script>
+</body></html>
+setTimeout(()=>connectAndAuth(8000),250);
