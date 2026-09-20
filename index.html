@@ -668,6 +668,44 @@ let shopTab="upgrade";
 btnGoShop.onclick=()=>{Sound.play("ui");renderShop();go("shop")};
 document.querySelectorAll("#shopTabs .chip").forEach(c=>c.onclick=()=>{shopTab=c.dataset.tab;Sound.play("ui");renderShop()});
 function skinById(id){return SKINS.find(s=>s.id===id)||SKINS[0]}
+/* 구매는 서버가 진실 소스: 연결돼 있으면 서버가 잔액을 검증·차감하고, 오프라인일 때만 로컬로 대체 처리 */
+async function buyUpgrade(u){
+ const lv=upLevel(u.id),cost=upCost(u);
+ if(cost===null)return;
+ const ready=await connectAndAuth(4000);
+ if(ready){
+  const res=await wsRequestOnce({type:"buy_upgrade",id:u.id},["buy_result"],6000);
+  if(!res||!res.ok){showToast(T("coin_insufficient",{n:cost}));Sound.play("back");renderShop();return}
+  applyServerAccount(res.account);Sound.play("buy");coinDelta(-cost);showToast(T("purchased"));
+ }else{
+  if(stats.coins<cost){showToast(T("coin_insufficient",{n:cost}));Sound.play("back");return}
+  stats.coins-=cost;stats.upgrades[u.id]=lv+1;Storage.save(stats);
+  Sound.play("buy");coinDelta(-cost);showToast(T("purchased"));refreshProfileUI();
+ }
+ renderShop();
+}
+async function buySkinOrEquip(sk){
+ const owned=stats.skins.includes(sk.id),equipped=stats.skin===sk.id;
+ if(equipped)return;
+ const ready=await connectAndAuth(4000);
+ if(owned){
+  if(ready){
+   const res=await wsRequestOnce({type:"equip_skin",id:sk.id},["buy_result"],6000);
+   if(res&&res.ok)applyServerAccount(res.account);
+  }else{stats.skin=sk.id;Storage.save(stats)}
+  Sound.play("ui");renderShop();return;
+ }
+ if(ready){
+  const res=await wsRequestOnce({type:"buy_skin",id:sk.id},["buy_result"],6000);
+  if(!res||!res.ok){showToast(T("coin_insufficient",{n:sk.cost}));Sound.play("back");renderShop();return}
+  applyServerAccount(res.account);Sound.play("buy");coinDelta(-sk.cost);showToast(T("purchased"));
+ }else{
+  if(stats.coins<sk.cost){showToast(T("coin_insufficient",{n:sk.cost}));Sound.play("back");return}
+  stats.coins-=sk.cost;stats.skins.push(sk.id);stats.skin=sk.id;Storage.save(stats);
+  Sound.play("buy");coinDelta(-sk.cost);showToast(T("purchased"));refreshProfileUI();
+ }
+ renderShop();
+}
 function renderShop(){
  document.querySelectorAll("#shopTabs .chip").forEach(c=>c.classList.toggle("active",c.dataset.tab===shopTab));
  shopNote.textContent=T(shopTab==="upgrade"?"shop_note_upgrade":"shop_note_skin");
@@ -685,12 +723,7 @@ function renderShop(){
       <div class="pips">${Array.from({length:u.max},(_,i)=>`<i class="${i<lv?"on":""}"></i>`).join("")}</div>
     </div>
     <div class="buy-btn ${maxed?"max":afford?"":"locked"}">${maxed?T("maxed"):"🪙 "+cost+"<br>"+T("buy")}</div>`;
-   row.querySelector(".buy-btn").onclick=()=>{
-    if(maxed)return;
-    if(!afford){showToast(T("coin_insufficient",{n:cost}));Sound.play("back");return}
-    stats.coins-=cost;stats.upgrades[u.id]=lv+1;Storage.save(stats);
-    Sound.play("buy");coinDelta(-cost);showToast(T("purchased"));refreshProfileUI();renderShop();
-   };
+   if(!maxed)row.querySelector(".buy-btn").onclick=()=>buyUpgrade(u);
    shopList.appendChild(row);
   });
  }else{
@@ -705,13 +738,7 @@ function renderShop(){
       <div class="si-desc">${owned?(equipped?T("equipped"):T("owned")):"🪙 "+sk.cost}</div>
     </div>
     <div class="buy-btn ${equipped?"equipped":owned?"max":afford?"":"locked"}">${equipped?T("equipped"):owned?T("equip"):"🪙 "+sk.cost+"<br>"+T("buy")}</div>`;
-   row.querySelector(".buy-btn").onclick=()=>{
-    if(equipped)return;
-    if(owned){stats.skin=sk.id;Storage.save(stats);Sound.play("ui");renderShop();return}
-    if(!afford){showToast(T("coin_insufficient",{n:sk.cost}));Sound.play("back");return}
-    stats.coins-=sk.cost;stats.skins.push(sk.id);stats.skin=sk.id;Storage.save(stats);
-    Sound.play("buy");coinDelta(-sk.cost);showToast(T("purchased"));refreshProfileUI();renderShop();
-   };
+   if(!equipped)row.querySelector(".buy-btn").onclick=()=>buySkinOrEquip(sk);
    shopList.appendChild(row);
   });
  }
@@ -1004,7 +1031,53 @@ function drawBoard(e,aim){
 /* ============================================================
    네트워크
 ============================================================ */
-const netState={ws:null,connected:false,mode:"idle",clientId:null,roomId:null,you:null,hostId:null,players:[],you_index_cached:null,isHost:false,ranked:false};
+const netState={ws:null,connected:false,authed:false,mode:"idle",clientId:null,roomId:null,you:null,hostId:null,players:[],you_index_cached:null,isHost:false,ranked:false,pendingHandlers:[]};
+function isServerReady(){return netState.connected&&netState.authed}
+function wsRequestOnce(msg,matchTypes,timeoutMs=6000){
+ return new Promise(resolve=>{
+  let done=false;
+  const handler=m=>{if(matchTypes.includes(m.type)&&!done){done=true;cleanup();resolve(m)}};
+  const cleanup=()=>{netState.pendingHandlers=netState.pendingHandlers.filter(h=>h!==handler)};
+  netState.pendingHandlers.push(handler);
+  wsSend(msg);
+  setTimeout(()=>{if(!done){done=true;cleanup();resolve(null)}},timeoutMs);
+ });
+}
+function connectAndAuth(timeoutMs=5000){
+ return new Promise(resolve=>{
+  if(isServerReady())return resolve(true);
+  let settled=false;
+  const handler=m=>{if(m.type==="account_state"&&!settled){settled=true;cleanup();resolve(true)}};
+  const cleanup=()=>{netState.pendingHandlers=netState.pendingHandlers.filter(h=>h!==handler)};
+  netState.pendingHandlers.push(handler);
+  connectWS(()=>{wsSend({type:"auth",accountId:deviceId,nickname:myNickname})},()=>{if(!settled){settled=true;cleanup();resolve(false)}});
+  setTimeout(()=>{if(!settled){settled=true;cleanup();resolve(false)}},timeoutMs);
+ });
+}
+function applyServerAccount(acc){
+ if(!acc)return;
+ netState.authed=true;
+ stats.coins=acc.coins;stats.wins=acc.wins;stats.games=acc.games;stats.bestStreak=acc.bestStreak;
+ stats.rankRating=acc.rankRating;stats.rankWins=acc.rankWins;stats.rankGames=acc.rankGames;
+ stats.upgrades=acc.upgrades||{};stats.skins=acc.skins&&acc.skins.length?acc.skins:["basic"];
+ stats.skin=stats.skins.includes(acc.skin)?acc.skin:"basic";
+ if(acc.nickname&&acc.nickname!==myNickname){myNickname=acc.nickname;localStorage.setItem(NICK_KEY,myNickname);profileNameText.textContent=myNickname}
+ stats.nickname=myNickname;
+ Storage.save(stats);refreshProfileUI();renderShop();
+}
+function renderRewardPills(){
+ resultRewards.innerHTML="";
+ const r=game.rewards;if(!r)return;
+ if(r.coin>0)resultRewards.insertAdjacentHTML("beforeend",`<div class="reward-pill">${T("reward_coin",{n:r.coin})}</div>`);
+ if(r.rp)resultRewards.insertAdjacentHTML("beforeend",`<div class="reward-pill">${r.rp}</div>`);
+}
+function reportPlaytime(){
+ if(!isServerReady())return;
+ const now=Date.now(),delta=Math.max(0,Math.min(3600,Math.round((now-(game._ptAnchor||sessionStart))/1000)));
+ game._ptAnchor=now;
+ if(delta>0)wsSend({type:"add_playtime",seconds:delta});
+}
+setInterval(reportPlaytime,30000);
 function localPlayerIndex(){return game.mode==="online"?netState.you_index_cached:0}
 function connectWS(ok,fail){
  if(netState.ws?.readyState===1){netState.connected=true;setConnStatus(true);ok?.();return}
@@ -1013,7 +1086,7 @@ function connectWS(ok,fail){
   let opened=false;
   const t=setTimeout(()=>{if(!opened){try{ws.close()}catch{};fail?.("timeout")}},8000);
   ws.onopen=()=>{opened=true;clearTimeout(t);netState.connected=true;setConnStatus(true);wsSend({type:"set_name",name:myNickname});ok?.()};
-  ws.onclose=()=>{netState.connected=false;setConnStatus(false);if(!opened)fail?.("closed")};
+  ws.onclose=()=>{netState.connected=false;netState.authed=false;setConnStatus(false);if(!opened)fail?.("closed")};
   ws.onerror=()=>setConnStatus(false);
   ws.onmessage=e=>{try{handleNetMessage(JSON.parse(e.data))}catch{}};
  }catch{fail?.("exception")}
@@ -1046,23 +1119,35 @@ btnFindMatch.onclick=()=>{
 };
 function computeMyIndex(){netState.you_index_cached=netState.players.findIndex(p=>p.clientId===netState.clientId);return netState.you_index_cached}
 function handleNetMessage(m){
+ if(netState.pendingHandlers.length)netState.pendingHandlers.slice().forEach(h=>h(m));
  switch(m.type){
   case"welcome":netState.clientId=m.clientId;break;
+  case"account_state":{
+   applyServerAccount(m.account);
+   if(m.matchReward){
+    game.rewards=m.matchReward;
+    const silent=game.suppressNextAccountToast;game.suppressNextAccountToast=false;
+    if(!silent){
+     if(m.matchReward.coin>0){coinDelta(m.matchReward.coin);Sound.play("coin");showToast(T("win_reward_toast",{n:m.matchReward.coin}))}
+     if(m.matchReward.rp)showToast((m.matchReward.rp[0]==="-"?"":"+")+m.matchReward.rp);
+    }
+    if(screens.result.classList.contains("active"))renderRewardPills();
+   }
+   break;
+  }
   case"match_found":
-   netState.mode="in_room";netState.roomId=m.roomId;netState.you=m.you;netState.hostId=m.hostId;
-   netState.players=m.players;netState.isHost=m.isHost;
-   if(m.ranked!==undefined)netState.ranked=!!m.ranked;
+   netState.mode="in_room";netState.roomId=m.roomId;netState.you=m.playerIndex;netState.hostId=m.hostId;
+   netState.players=m.players;netState.isHost=m.isHost;netState.ranked=!!m.ranked;
    computeMyIndex();startOnlineGame(m);break;
+  case"match_cancelled":
+   showToast(m.reason==="insufficient_funds"?T("coin_insufficient",{n:GAME_COST[netState.ranked?"rank":"casual"]}):T("search_fail"));
+   netState.mode="idle";go("onlineConfig");break;
   case"state":
-   if(game.engine&&netState.mode==="in_room"){
-    game.engine.applyState(m);renderHUD();checkLocalDefeat();
-    if(game.engine.winner!=null||game.engine.draw)onGameOver();
-   }break;
-  case"shoot":
-   if(netState.isHost&&game.engine&&game.mode==="online")game.engine.shoot(m.stoneId,m.dx*game.engine.boardPx,m.dy*game.engine.boardPx);
+   if(game.engine&&netState.mode==="in_room"){game.engine.applyState(m);renderHUD();checkLocalDefeat()}
    break;
   case"game_over":
-   if(game.engine&&game.mode==="online"){game.engine.winner=m.winner??null;game.engine.draw=!!m.draw;onGameOver()}break;
+   if(game.mode==="online")onlineGameOver(m.winner??null,!!m.draw);
+   break;
   case"player_left":
    showToast(T("opp_left_toast"));if(game.mode==="online")forceEndOnDisconnect();break;
  }
@@ -1102,11 +1187,10 @@ function startPracticeGame(){
   game.aiLevel=practiceState.level;
  });
 }
-function startAIGame(){
- if(!trySpendCoins(GAME_COST.ai))return;
+function launchAIGame(economyMode){
  const n=stepConfig.aiPlayers.val;
  enterGameScreen(()=>{
-  game.mode="ai";game.ranked=false;
+  game.mode="ai";game.ranked=false;game.economyMode=economyMode;
   const b=myBuffs();game.aimAssist=b.aim;
   game.engine=new Engine({map:aiState.map,playerCount:n,stoneCount:2,boardPx,buffSlot:0,buffs:b});
   game.engine.skinSlot=0;
@@ -1115,11 +1199,23 @@ function startAIGame(){
   game.aiLevel=aiState.level;
  });
 }
+/* 코인·기록의 진실 소스는 서버. 연결되면 서버가 입장료를 검증·차감하고, 오프라인일 때만 로컬로 대체 처리 */
+async function startAIGame(){
+ const ready=await connectAndAuth(4500);
+ if(ready){
+  const res=await wsRequestOnce({type:"spend_ai"},["spend_result"],6000);
+  if(!res||!res.ok){showToast(T("coin_insufficient",{n:GAME_COST.ai}));Sound.play("back");return}
+  applyServerAccount(res.account);
+  launchAIGame("server");
+ }else{
+  if(!trySpendCoins(GAME_COST.ai))return;
+  launchAIGame("local");
+ }
+}
 function startOnlineGame(m){
- const cost=GAME_COST[netState.ranked?"rank":"casual"];
- if(!trySpendCoins(cost)){wsSend({type:"leave_room"});go("onlineConfig");return}
+ // 입장료는 매칭 시점에 서버가 이미 차감했음 — 클라이언트는 물리도 비용도 다시 계산하지 않음
  enterGameScreen(()=>{
-  game.mode="online";game.ranked=!!netState.ranked;game.aimAssist=myBuffs().aim;
+  game.mode="online";game.ranked=!!netState.ranked;game.economyMode="server";game.aimAssist=myBuffs().aim;
   // 온라인은 공정성을 위해 강화 미적용 (스킨만 적용)
   game.engine=new Engine({map:m.map,playerCount:m.players.length,stoneCount:m.stoneCount,boardPx,buffSlot:-1,buffs:null});
   game.engine.skinSlot=netState.you_index_cached;
@@ -1127,13 +1223,12 @@ function startOnlineGame(m){
   game.aiFlags=game.names.map(()=>false);
  });
  connDot.style.display="flex";
- if(netState.isHost)setTimeout(()=>{if(game.engine)wsSend({type:"state",...game.engine.serialize()})},120);
 }
 function enterGameScreen(fn){
  // 이전 게임 잔여 상태 완전 정리 (프리즈/유령 루프 방지)
  clearTimeout(game.aiTimer);clearInterval(game.turnTimer);
  game.gen++;game.active=true;game.localDefeated=false;game._reportedOver=false;
- game.penaltyApplied=false;game.rewards=null;
+ game.penaltyApplied=false;game.rewards=null;game.economyMode=null;game.suppressNextAccountToast=false;
  game.matchId="m-"+Date.now()+"-"+Math.random().toString(36).slice(2);
  clearAimState();lastTurn=-1;toastStack.innerHTML="";exitConfirm.classList.remove("show");
  go("game");
@@ -1211,10 +1306,8 @@ function resetTurnTimer(){
   if(!game.engine||game.engine.moving||game.engine.winner!=null)return;
   if(--game.turnRemain<=0){
    clearInterval(game.turnTimer);
-   if(game.mode==="online"){
-    // 호스트가 대기 중인 턴을 넘겨 무한 대기 방지
-    if(netState.isHost){game.engine.nextTurn();renderHUD();wsSend({type:"state",...game.engine.serialize()})}
-   }else{game.engine.nextTurn();renderHUD();maybeAiTurn()}
+   // 온라인 모드의 턴 시간 초과는 서버가 직접 판단해 state를 보내준다 — 클라이언트는 그저 기다림
+   if(game.mode!=="online"){game.engine.nextTurn();renderHUD();maybeAiTurn()}
   }
   const r=Math.max(0,game.turnRemain/TURN_TIME_LIMIT);
   timerRing.style.strokeDashoffset=(97.4*(1-r)).toFixed(1);
@@ -1250,49 +1343,36 @@ function releaseAim(){
  const id=game.dragging.id;
  clearAimState();
  if(Math.hypot(dx,dy)>=4*game.engine.scale){
-  if(game.mode==="online"&&!netState.isHost){
-   Sound.play("shoot",.6);
+  if(game.mode==="online"){
    wsSend({type:"shoot",stoneId:id,dx:dx/game.engine.boardPx,dy:dy/game.engine.boardPx});
-  }else game.engine.shoot(id,dx,dy);
+  }
+  game.engine.shoot(id,dx,dy); // 로컬 예측 — 서버 state가 곧 정확한 값으로 보정
  }
  drawBoard(game.engine,null);
 }
 canvas.addEventListener("pointerup",releaseAim);
 canvas.addEventListener("pointercancel",releaseAim);
 
-/* ---- 메인 루프 ---- */
+/* ---- 메인 루프 ----
+   온라인 대전도 부드러운 화면을 위해 로컬로 물리를 미리 그려 보이지만(예측),
+   승패·보상·랭크는 오직 서버의 game_over/account_state 메시지로만 결정된다. */
 function loop(myGen){
  if(game.gen!==myGen)return;
  game.lastFrame=performance.now();
  const e=game.engine;
- if(!e)return;
- const visible=screens.game.classList.contains("active");
- // 호스트는 내가 탈락해도 남은 사람들을 위해 계속 시뮬레이션해야 함
- const mustSim=game.mode==="online"&&netState.isHost&&(e.winner==null&&!e.draw);
- if(!visible&&!mustSim)return;
- // 온라인 게스트: 호스트가 보낸 상태만 그림
- if(game.mode==="online"&&!netState.isHost){
-  drawBoard(e,game.localDefeated?null:aimInfo);
-  requestAnimationFrame(()=>loop(myGen));
-  return;
- }
+ if(!e||!screens.game.classList.contains("active"))return;
  const was=e.moving;
  if(e.moving)e.step();
  checkLocalDefeat();
  const settled=was&&!e.moving;
- if(e.moving&&game.mode==="online"&&netState.isHost&&performance.now()-lastBroadcast>45){
-  wsSend({type:"state",...e.serialize()});lastBroadcast=performance.now();
- }
  if(settled){
-  if(game.mode==="online"&&netState.isHost)wsSend({type:"state",...e.serialize()});
   renderHUD();
-  if(e.winner!=null||e.draw){
-   if(game.mode==="online"&&netState.isHost&&!game._reportedOver){game._reportedOver=true;wsSend({type:"game_over",winner:e.winner,draw:!!e.draw})}
-   onGameOver();return;
+  if(game.mode!=="online"){
+   if(e.winner!=null||e.draw){onGameOver();return}
+   maybeAiTurn();
   }
-  if(game.mode!=="online")maybeAiTurn();
  }
- if(visible)drawBoard(e,game.localDefeated?null:aimInfo);
+ drawBoard(e,game.localDefeated?null:aimInfo);
  requestAnimationFrame(()=>loop(myGen));
 }
 function maybeAiTurn(){
@@ -1312,26 +1392,21 @@ function checkLocalDefeat(){
  if(idx==null||idx<0)return false;
  if(game.engine.aliveCountFor(idx)!==0)return false;
  game.localDefeated=true;
- clearAimState();clearInterval(game.turnTimer);clearTimeout(game.aiTimer);
+ clearAimState();
  gameHint.textContent=T("hint_defeated");
+ if(game.mode==="online")return true; // 서버가 최종 결과를 결정할 때까지 대기 (화면은 계속 구경 가능)
+ clearInterval(game.turnTimer);clearTimeout(game.aiTimer);
  stats.games++;stats.curStreak=0;
- let rpText=null;
- if(game.mode==="online"&&game.ranked){
-  stats.rankGames++;stats.rankRating=Math.max(0,(stats.rankRating||1000)+RATING_DELTA.loss);
-  rpText=RATING_DELTA.loss+" RP";showToast(rpText);
- }
  stats.playSeconds+=(Date.now()-sessionStart)/1000;sessionStart=Date.now();
  Storage.save(stats);refreshProfileUI();
- game.rewards={coin:0,rp:rpText};
+ game.rewards=null;
  Sound.play("lose");
  showResult(T("result_lose"),null);
  return true;
 }
+/* practice/ai 전용 — 온라인은 절대 여기 도달하지 않고 onlineGameOver()로만 종료된다 */
 function onGameOver(){
  if(!game.active)return;
- if(game.mode==="online"&&netState.isHost&&!game._reportedOver){
-  game._reportedOver=true;wsSend({type:"game_over",winner:game.engine.winner,draw:!!game.engine.draw});
- }
  if(game.localDefeated){clearInterval(game.turnTimer);clearTimeout(game.aiTimer);return}
  game.active=false;clearInterval(game.turnTimer);clearTimeout(game.aiTimer);
  const isDraw=!!game.engine.draw;
@@ -1339,40 +1414,40 @@ function onGameOver(){
   game.rewards=null;Sound.play("win");
   showResult(game.names[game.engine.winner]||T("practice_end"),game.engine.winner);return;
  }
- const w=game.engine.winner;
- const iWon=!isDraw&&(game.mode==="online"?w===netState.you_index_cached:w===0);
+ const w=game.engine.winner,iWon=!isDraw&&w===0;
  stats.games++;
- const perStoneBonus=game.mode==="ai"?8:(game.ranked?14:10);
- const reward=game.engine.playerCount*perStoneBonus;
- let gained=0,rpText=null;
+ const reward=game.engine.playerCount*8;
+ let gained=0;
  if(isDraw)stats.curStreak=0;
  else if(iWon){
   stats.wins++;stats.curStreak++;stats.bestStreak=Math.max(stats.bestStreak,stats.curStreak);
   stats.coins+=reward;gained=reward;coinDelta(reward);Sound.play("coin");
   showToast(T("win_reward_toast",{n:reward}));
  }else stats.curStreak=0;
- if(game.mode==="online"&&game.ranked){
-  const delta=isDraw?RATING_DELTA.draw:(iWon?RATING_DELTA.win:RATING_DELTA.loss);
-  stats.rankGames++;if(iWon)stats.rankWins++;
-  stats.rankRating=Math.max(0,(stats.rankRating||1000)+delta);
-  if(!isDraw){rpText=(delta>=0?"+":"")+delta+" RP";showToast(rpText)}
- }
  stats.playSeconds+=(Date.now()-sessionStart)/1000;sessionStart=Date.now();
  Storage.save(stats);refreshProfileUI();
- game.rewards={coin:gained,rp:rpText};
+ game.rewards={coin:gained,rp:null};
  Sound.play(iWon?"win":"lose");
+ if(game.economyMode==="server"){
+  // 서버에도 결과를 보고해 진짜 기록을 남긴다. 중복 안내를 막기 위해 다음 account_state 알림은 조용히 반영만 한다.
+  game.suppressNextAccountToast=true;
+  wsSend({type:"report_ai_result",won:iWon,playerCount:game.engine.playerCount});
+ }
  setTimeout(()=>showResult(isDraw?T("result_draw"):(iWon?T("result_win"):T("result_lose")),w,isDraw),400);
+}
+/* 온라인 전용 — 서버의 game_over 메시지로만 호출됨 */
+function onlineGameOver(winner,isDraw){
+ if(!game.active)return;
+ game.active=false;clearInterval(game.turnTimer);clearTimeout(game.aiTimer);
+ const iWon=!isDraw&&winner===netState.you_index_cached;
+ Sound.play(iWon?"win":"lose");
+ showResult(isDraw?T("result_draw"):(iWon?T("result_win"):T("result_lose")),winner,isDraw);
 }
 function showResult(t,w,isDraw=false){
  resultTitle.textContent=t;
  const practice=game.mode==="practice";
  resultMedal.textContent=practice?"🎯":(isDraw?"🤝":(w===null?"🚩":(w===0||(game.mode==="online"&&w===netState.you_index_cached))?"🏆":"💥"));
- resultRewards.innerHTML="";
- const r=game.rewards;
- if(r){
-  if(r.coin>0)resultRewards.insertAdjacentHTML("beforeend",`<div class="reward-pill">${T("reward_coin",{n:r.coin})}</div>`);
-  if(r.rp)resultRewards.insertAdjacentHTML("beforeend",`<div class="reward-pill">${r.rp}</div>`);
- }
+ renderRewardPills();
  go("result");
 }
 function applyExitPenalty(){
@@ -1383,6 +1458,7 @@ function applyExitPenalty(){
  stats.coins=Math.max(0,stats.coins-5);Storage.save(stats);refreshProfileUI();coinDelta(-5);showToast("-5 🪙");
 }
 function cleanupGame(){
+ reportPlaytime();
  game.active=false;game.gen++;
  clearInterval(game.turnTimer);clearTimeout(game.aiTimer);
  if(game.mode==="online"){wsSend({type:"leave_room"});netState.mode="idle"}
@@ -1396,7 +1472,7 @@ btnResultAgain.onclick=()=>{
  Sound.play("ui");
  const m=game.mode;
  if(m==="practice")startPracticeGame();
- else if(m==="ai"){cleanupGame();game.mode="ai";startAIGame()}
+ else if(m==="ai"){cleanupGame();startAIGame()}
  else{cleanupGame();go("onlineConfig")}
 };
 btnResultShop.onclick=()=>{Sound.play("ui");cleanupGame();renderShop();go("shop")};
@@ -1419,4 +1495,5 @@ document.addEventListener("touchmove",e=>{if(!e.target.closest(".content"))e.pre
 applyStaticI18n();
 document.querySelectorAll("#langRow [data-lang]").forEach(e=>e.classList.toggle("active",e.dataset.lang===currentLang));
 renderProfileName();refreshProfileUI();renderSoundToggles();renderShop();fitCanvas();
+connectAndAuth(6000); // 서버와 계정을 백그라운드로 동기화 (실패해도 로컬 캐시로 계속 진행)
 </script></body></html>
