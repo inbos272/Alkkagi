@@ -7,6 +7,7 @@ const { Pool } = require("pg");
 const PORT = Number(process.env.PORT || 10000);
 const WS_TICK_MS = 1000 / 60;
 const STATE_BROADCAST_MS = 33;
+const PHYSICS_SUBSTEPS = 4;
 const TURN_TIME_LIMIT = 18;
 const BASE_PX = 600;
 const STONE_R_RATIO = 0.052;
@@ -17,6 +18,7 @@ const SETTLE_EPS = 0.04;
 const COLLISION_RESTITUTION = 0.90;
 const BUMPER_RESTITUTION = 0.72;
 const GAME_COST = { practice: 0, ai: 8, casual: 10, rank: 15 };
+const PRACTICE_IS_SANDBOX = true;
 const RATING_DELTA = { win: 22, loss: -16, draw: 0 };
 
 const MAPS = {
@@ -40,6 +42,17 @@ const SKINS = {
   gold: { cost: 470 },
   magma: { cost: 735 },
   aurora: { cost: 1070 },
+  pulse: { cost: 420 },
+  crystal: { cost: 620 },
+  void: { cost: 860 },
+};
+
+const TRAILS = {
+  none: { cost: 0 },
+  comet: { cost: 140 },
+  spark: { cost: 260 },
+  laser: { cost: 390 },
+  prism: { cost: 560 },
 };
 
 const NAME_POOL = [
@@ -64,6 +77,8 @@ const DEFAULT_ACCOUNT = {
   upgrades: {},
   skins: ["basic"],
   skin: "basic",
+  trails: ["none"],
+  trail: "none",
 };
 
 // Render Web Service의 파일 시스템은 기본적으로 영속적이지 않으므로
@@ -114,6 +129,9 @@ function normalizeAccount(accountId, data) {
   d.skins = Array.isArray(d.skins) && d.skins.length ? [...new Set(d.skins)] : ["basic"];
   if (!d.skins.includes("basic")) d.skins.unshift("basic");
   d.skin = d.skins.includes(d.skin) ? d.skin : "basic";
+  d.trails = Array.isArray(d.trails) && d.trails.length ? [...new Set(d.trails)] : ["none"];
+  if (!d.trails.includes("none")) d.trails.unshift("none");
+  d.trail = d.trails.includes(d.trail) ? d.trail : "none";
   return d;
 }
 
@@ -209,54 +227,106 @@ class ServerEngine {
     this._genRandomStones();
   }
 
+  _validPosition(x, y, positions, minGap, maxR) {
+    if (Math.hypot(x - this.cx, y - this.cy) > maxR) return false;
+    for (const q of positions) {
+      if (Math.hypot(x - q.x, y - q.y) < minGap) return false;
+    }
+    for (const b of this.bumpers) {
+      if (Math.hypot(x - b.x, y - b.y) < b.r + this.stoneR * 1.28) return false;
+    }
+    return true;
+  }
+
+  _relaxPositions(positions, maxR, minGap) {
+    for (let pass = 0; pass < 480; pass++) {
+      let moved = false;
+      for (let i = 0; i < positions.length; i++) {
+        const A = positions[i];
+        for (let j = i + 1; j < positions.length; j++) {
+          const B = positions[j];
+          let dx = B.x - A.x;
+          let dy = B.y - A.y;
+          let d = Math.hypot(dx, dy);
+          if (d < 1e-6) {
+            const a = (i * 2.3999632297 + j * 0.7853981634) % (Math.PI * 2);
+            dx = Math.cos(a); dy = Math.sin(a); d = 1;
+          }
+          if (d < minGap) {
+            const k = (minGap - d) / d * 0.52;
+            A.x -= dx * k; A.y -= dy * k;
+            B.x += dx * k; B.y += dy * k;
+            moved = true;
+          }
+        }
+        for (const b of this.bumpers) {
+          let dx = A.x - b.x, dy = A.y - b.y, d = Math.hypot(dx, dy);
+          const min = b.r + this.stoneR * 1.28;
+          if (d < min) {
+            if (d < 1e-6) { dx = 1; dy = 0; d = 1; }
+            A.x = b.x + dx / d * min;
+            A.y = b.y + dy / d * min;
+            moved = true;
+          }
+        }
+        const dx = A.x - this.cx, dy = A.y - this.cy;
+        const d = Math.hypot(dx, dy);
+        if (d > maxR) {
+          A.x = this.cx + dx / d * maxR;
+          A.y = this.cy + dy / d * maxR;
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+  }
+
   _genRandomStones() {
-    const maxR = this.boardR - this.stoneR * 1.35;
-    const minGap = this.stoneR * 2.12;
+    const maxR = this.boardR - this.stoneR * 1.38;
+    const minGap = this.stoneR * 2.16;
     const positions = [];
     const total = this.playerCount * this.stoneCount;
 
+    // Poisson-style rejection sampling first: naturally random and well separated.
     for (let id = 0; id < total; id++) {
       const owner = Math.floor(id / this.stoneCount);
       let placed = false;
-      for (let attempt = 0; attempt < 700 && !placed; attempt++) {
+      for (let attempt = 0; attempt < 1600 && !placed; attempt++) {
         const angle = Math.random() * Math.PI * 2;
-        const radius = Math.sqrt(Math.random()) * maxR * 0.92;
-        const p = {
-          x: this.cx + Math.cos(angle) * radius,
-          y: this.cy + Math.sin(angle) * radius,
-          owner,
-        };
-        let ok = true;
-        for (const q of positions) {
-          if (Math.hypot(p.x - q.x, p.y - q.y) < minGap) {
-            ok = false;
-            break;
-          }
+        const radius = Math.sqrt(Math.random()) * maxR * 0.94;
+        const x = this.cx + Math.cos(angle) * radius;
+        const y = this.cy + Math.sin(angle) * radius;
+        if (this._validPosition(x, y, positions, minGap, maxR)) {
+          positions.push({ x, y, owner });
+          placed = true;
         }
-        if (ok) {
-          for (const b of this.bumpers) {
-            if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + this.stoneR * 1.25) {
-              ok = false;
+      }
+      if (!placed) {
+        // Deterministic fallback search guarantees a non-overlapping candidate if one exists.
+        const ringStep = Math.max(minGap * 0.94, 1);
+        let found = null;
+        for (let r = ringStep; r <= maxR && !found; r += ringStep * 0.72) {
+          const count = Math.max(8, Math.floor(2 * Math.PI * r / ringStep));
+          for (let k = 0; k < count; k++) {
+            const angle = (k / count) * Math.PI * 2 + id * 0.173;
+            const x = this.cx + Math.cos(angle) * r;
+            const y = this.cy + Math.sin(angle) * r;
+            if (this._validPosition(x, y, positions, minGap, maxR)) {
+              found = { x, y, owner };
               break;
             }
           }
         }
-        if (ok) {
-          positions.push(p);
-          placed = true;
-        }
-      }
-
-      if (!placed) {
-        const angle = (id * 2.399963229728653) % (Math.PI * 2);
-        const radius = maxR * 0.55;
-        positions.push({
-          x: this.cx + Math.cos(angle) * radius,
-          y: this.cy + Math.sin(angle) * radius,
+        // Very dense edge case: relax a little, then repair globally below.
+        positions.push(found || {
+          x: this.cx + Math.cos(id * 2.3999632297) * maxR * 0.50,
+          y: this.cy + Math.sin(id * 2.3999632297) * maxR * 0.50,
           owner,
         });
       }
     }
+
+    this._relaxPositions(positions, maxR, minGap);
 
     for (let id = 0; id < positions.length; id++) {
       const p = positions[id];
@@ -270,8 +340,8 @@ class ServerEngine {
         vy: 0,
         r: this.stoneR,
         m: 1 + (bf?.massBonus || 0),
-        fric: this.mapDef.friction - (bf?.gripBonus || 0),
-        rest: COLLISION_RESTITUTION + (bf?.restBonus || 0),
+        fric: Math.max(0.90, this.mapDef.friction - (bf?.gripBonus || 0)),
+        rest: Math.min(1.18, COLLISION_RESTITUTION + (bf?.restBonus || 0)),
         pw: 1 + (bf?.powerBonus || 0),
         alive: true,
       });
@@ -279,11 +349,15 @@ class ServerEngine {
   }
 
   aliveCountFor(owner) {
-    return this.stones.filter((s) => s.owner === owner && s.alive).length;
+    let n = 0;
+    for (const s of this.stones) if (s.owner === owner && s.alive) n++;
+    return n;
   }
 
   alivePlayers() {
-    return [...new Set(this.stones.filter((s) => s.alive).map((s) => s.owner))];
+    const seen = new Set();
+    for (const s of this.stones) if (s.alive) seen.add(s.owner);
+    return [...seen];
   }
 
   nextTurn() {
@@ -310,17 +384,14 @@ class ServerEngine {
   shoot(stoneId, dxNorm, dyNorm) {
     if (this.moving || this.winner != null || this.draw) return false;
     const s = this.stones.find((x) => x.id === stoneId && x.alive);
-    if (!s) return false;
-    let dx = Number(dxNorm) * BASE_PX;
-    let dy = Number(dyNorm) * BASE_PX;
+    if (!s || s.owner !== this.turn) return false;
+    const dx = Number(dxNorm) * BASE_PX;
+    const dy = Number(dyNorm) * BASE_PX;
     const d0 = Math.hypot(dx, dy);
     if (!Number.isFinite(d0) || d0 < 4) return false;
-
-    const maxPull = MAX_PULL;
-    const d = Math.min(d0, maxPull);
-    const p = Math.pow(d / maxPull, POWER_CURVE);
-    const nx = dx / d0;
-    const ny = dy / d0;
+    const d = Math.min(d0, MAX_PULL);
+    const p = Math.pow(d / MAX_PULL, POWER_CURVE);
+    const nx = dx / d0, ny = dy / d0;
     const speed = MAX_SPEED * p * (s.pw || 1) / (1 + ((s.m || 1) - 1) * 0.25);
     s.vx = nx * speed;
     s.vy = ny * speed;
@@ -328,108 +399,123 @@ class ServerEngine {
     return true;
   }
 
-  step() {
-    if (!this.moving) return false;
-    const eps = SETTLE_EPS;
-    let any = false;
-
-    for (const s of this.stones) {
-      if (!s.alive) continue;
-      s.x += s.vx;
-      s.y += s.vy;
-      const f = s.fric || this.mapDef.friction;
-      s.vx *= f;
-      s.vy *= f;
-      if (Math.hypot(s.vx, s.vy) < eps) {
-        s.vx = 0;
-        s.vy = 0;
-      } else {
-        any = true;
-      }
-    }
-
+  _resolveBumpers() {
+    let touched = false;
     for (const s of this.stones) {
       if (!s.alive) continue;
       for (const b of this.bumpers) {
-        let dx = s.x - b.x;
-        let dy = s.y - b.y;
-        let d = Math.hypot(dx, dy);
+        let dx = s.x - b.x, dy = s.y - b.y, d = Math.hypot(dx, dy);
         const min = b.r + s.r;
-        if (d < min) {
-          if (d < 1e-7) {
-            dx = 1;
-            dy = 0;
-            d = 1;
-          }
-          const nx = dx / d;
-          const ny = dy / d;
-          s.x = b.x + nx * min;
-          s.y = b.y + ny * min;
-          const vn = s.vx * nx + s.vy * ny;
-          if (vn < 0) {
-            s.vx -= (1 + BUMPER_RESTITUTION) * vn * nx;
-            s.vy -= (1 + BUMPER_RESTITUTION) * vn * ny;
-          }
-          any = true;
+        if (d >= min) continue;
+        if (d < 1e-7) { dx = 1; dy = 0; d = 1; }
+        const nx = dx / d, ny = dy / d;
+        s.x = b.x + nx * (min + 0.02);
+        s.y = b.y + ny * (min + 0.02);
+        const vn = s.vx * nx + s.vy * ny;
+        if (vn < 0) {
+          const rest = Math.min(1.05, BUMPER_RESTITUTION + Math.max(0, (s.rest || 0.9) - 0.9) * 0.5);
+          s.vx -= (1 + rest) * vn * nx;
+          s.vy -= (1 + rest) * vn * ny;
         }
+        touched = true;
       }
     }
+    return touched;
+  }
 
+  _resolveStoneCollisions() {
     const alive = this.stones.filter((s) => s.alive);
+    let touched = false;
     for (let i = 0; i < alive.length; i++) {
+      const A = alive[i];
       for (let j = i + 1; j < alive.length; j++) {
-        const A = alive[i];
         const B = alive[j];
-        let dx = B.x - A.x;
-        let dy = B.y - A.y;
+        let dx = B.x - A.x, dy = B.y - A.y;
         let d = Math.hypot(dx, dy);
         const min = A.r + B.r;
-        if (d < min) {
-          if (d < 1e-7) {
-            const q = (A.id * 1103515245 + B.id * 12345) >>> 0;
-            const ang = (q % 360) * Math.PI / 180;
-            dx = Math.cos(ang);
-            dy = Math.sin(ang);
-          } else {
-            dx /= d;
-            dy /= d;
-          }
-          const nx = dx;
-          const ny = dy;
-          const ov = min - Math.max(d, 1e-7);
-          A.x -= nx * ov * 0.5;
-          A.y -= ny * ov * 0.5;
-          B.x += nx * ov * 0.5;
-          B.y += ny * ov * 0.5;
-          const invM = 1 / A.m + 1 / B.m;
-          const rel = (B.vx - A.vx) * nx + (B.vy - A.vy) * ny;
-          if (rel < 0) {
-            const rest = ((A.rest || COLLISION_RESTITUTION) + (B.rest || COLLISION_RESTITUTION)) / 2;
-            const imp = -(1 + rest) * rel / invM;
-            A.vx -= imp * nx / A.m;
-            A.vy -= imp * ny / A.m;
-            B.vx += imp * nx / B.m;
-            B.vy += imp * ny / B.m;
-          }
-          any = true;
+        if (d >= min) continue;
+        const actualD = d;
+        if (d < 1e-7) {
+          const seed = ((A.id + 1) * 92821 + (B.id + 7) * 68917) % 6283;
+          const ang = seed / 1000;
+          dx = Math.cos(ang); dy = Math.sin(ang);
+        } else {
+          dx /= d; dy /= d;
         }
+        const nx = dx, ny = dy;
+        const ov = min - Math.max(actualD, 1e-7);
+        const wa = 1 / (A.m || 1), wb = 1 / (B.m || 1), inv = wa + wb;
+        A.x -= nx * ov * (wa / inv) * 0.92;
+        A.y -= ny * ov * (wa / inv) * 0.92;
+        B.x += nx * ov * (wb / inv) * 0.92;
+        B.y += ny * ov * (wb / inv) * 0.92;
+        const rel = (B.vx - A.vx) * nx + (B.vy - A.vy) * ny;
+        if (rel < 0) {
+          const rest = Math.min(1.10, ((A.rest || 0.9) + (B.rest || 0.9)) * 0.5);
+          const impulse = -(1 + rest) * rel / inv;
+          A.vx -= impulse * nx * wa;
+          A.vy -= impulse * ny * wa;
+          B.vx += impulse * nx * wb;
+          B.vy += impulse * ny * wb;
+        }
+        touched = true;
       }
     }
+    return touched;
+  }
 
+  _removeOut() {
+    let changed = false;
     for (const s of this.stones) {
-      if (s.alive && Math.hypot(s.x - this.cx, s.y - this.cy) - s.r > this.boardR) {
+      if (!s.alive) continue;
+      if (Math.hypot(s.x - this.cx, s.y - this.cy) - s.r > this.boardR + 2) {
         s.alive = false;
+        s.vx = 0; s.vy = 0;
+        changed = true;
       }
     }
+    return changed;
+  }
 
+  step() {
+    if (!this.moving) return false;
+    const sub = PHYSICS_SUBSTEPS;
+    const dt = 1 / sub;
+    const eps = SETTLE_EPS;
+
+    for (let micro = 0; micro < sub; micro++) {
+      for (const s of this.stones) {
+        if (!s.alive) continue;
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+        const f = Math.pow(s.fric || this.mapDef.friction, dt);
+        s.vx *= f;
+        s.vy *= f;
+      }
+      this._resolveBumpers();
+      this._resolveStoneCollisions();
+      this._removeOut();
+    }
+
+    let any = false;
+    for (const s of this.stones) {
+      if (s.alive && Math.hypot(s.vx, s.vy) >= eps) {
+        any = true;
+        break;
+      }
+    }
     this.moving = any;
     if (!this.moving) this.nextTurn();
     return true;
   }
 
-  serialize(deadlineAt = null) {
+  serialize(deadlineAt = null, room = null) {
     return {
       norm: true,
+      playerCount: this.playerCount,
+      aiFlags: room?.aiFlags ? [...room.aiFlags] : undefined,
+      players: room?.players ? room.players.map((p) => ({ index: p.index, name: p.name, clientId: p.clientId, isAI: !!p.isAI })) : undefined,
+      names: room?.players ? room.players.map((p) => p.name) : undefined,
       stones: this.stones.map((s) => ({
         id: s.id,
         owner: s.owner,
@@ -598,23 +684,24 @@ function enqueueMatch(client, msg) {
     queueSize: queue.length,
   });
 
-  if (queue.length >= playerCount) {
+  while (queue.length >= playerCount) {
     const ids = queue.splice(0, playerCount).filter((id) => clients.has(id));
-    if (ids.length === playerCount) {
-      const matched = ids.map((id) => clients.get(id));
-      if (matched.every((c) => c.account && c.account.coins >= cost)) {
-        createRoom({
-          mode: "online",
-          ranked,
-          map,
-          playerCount,
-          stoneCount,
-          clientList: matched,
-        }).catch((err) => console.error("[MATCH CREATE]", err));
-      } else {
-        for (const c of matched) send(c.ws, { type: "match_cancelled", reason: "insufficient_funds", cost });
+    if (ids.length < playerCount) continue;
+    const matched = ids.map((id) => clients.get(id));
+    if (!matched.every((c) => c && c.account && c.account.coins >= cost && !c.roomId)) {
+      for (const c of matched) {
+        if (c && !c.roomId) send(c.ws, { type: "match_cancelled", reason: "insufficient_funds", cost });
       }
+      continue;
     }
+    Promise.resolve(createRoom({
+      mode: "online",
+      ranked,
+      map,
+      playerCount,
+      stoneCount,
+      clientList: matched,
+    })).catch((err) => console.error("[MATCH CREATE]", err));
   }
 
   if (!queue.length) queues.delete(key);
@@ -632,12 +719,25 @@ function cancelSearch(client) {
   send(client.ws, { type: "search_cancelled" });
 }
 
-function makePlayers(clientList) {
-  return clientList.map((client, index) => ({
-    clientId: client.id,
-    index,
-    name: client.account?.nickname || client.name || `Player ${index + 1}`,
-  }));
+function makePlayers(clientList, playerCount, aiFlags = []) {
+  const players = [];
+  let aiNo = 1;
+  let humanNo = 0;
+  for (let index = 0; index < playerCount; index++) {
+    const isAI = !!aiFlags[index];
+    if (isAI) {
+      players.push({ clientId: null, index, name: `AI ${aiNo++}`, isAI: true });
+      continue;
+    }
+    const client = clientList[humanNo++];
+    players.push({
+      clientId: client?.id || null,
+      index,
+      name: client?.account?.nickname || client?.name || `Player ${index + 1}`,
+      isAI: false,
+    });
+  }
+  return players;
 }
 
 function startTurn(room) {
@@ -653,7 +753,7 @@ function broadcastState(room, force = false) {
   const now = Date.now();
   if (!force && now - room.lastBroadcast < STATE_BROADCAST_MS) return;
   room.lastBroadcast = now;
-  broadcastRoomAll(room, { type: "state", state: room.engine.serialize(room.turnDeadline) });
+  broadcastRoomAll(room, { type: "state", state: room.engine.serialize(room.turnDeadline, room) });
 }
 
 async function chargeEntry(room) {
@@ -684,7 +784,7 @@ async function createRoom({ mode, ranked = false, map = "classic", playerCount, 
     aiLevel: aiLevel || "normal",
     clientList,
     clientIds: clientList.map((c) => c.id),
-    players: makePlayers(clientList),
+    players: makePlayers(clientList, playerCount, effectiveFlags),
     engine: new ServerEngine({ map, playerCount, stoneCount, buffsByPlayer }),
     turnDeadline: null,
     aiDueAt: null,
@@ -693,12 +793,20 @@ async function createRoom({ mode, ranked = false, map = "classic", playerCount, 
     entryCost: mode === "online" ? (ranked ? GAME_COST.rank : GAME_COST.casual) : mode === "ai" ? GAME_COST.ai : 0,
   };
 
+  if (mode === "practice") {
+    room.players.forEach((player, index) => { player.name = `Player ${index + 1}`; });
+  }
+
   rooms.set(roomId, room);
-  for (let i = 0; i < clientList.length; i++) {
-    const client = clientList[i];
-    client.roomId = roomId;
-    client.searchKey = null;
-    client.ownerIndex = mode === "online" ? i : 0;
+  let humanIndex = 0;
+  for (let i = 0; i < playerCount; i++) {
+    if (effectiveFlags[i]) continue;
+    const client = clientList[humanIndex++];
+    if (client) {
+      client.roomId = roomId;
+      client.searchKey = null;
+      client.ownerIndex = i;
+    }
   }
 
   try {
@@ -729,21 +837,24 @@ async function createRoom({ mode, ranked = false, map = "classic", playerCount, 
     }
 
     startTurn(room);
-    broadcastRoomAll(room, {
-      type: "game_started",
-      roomId,
-      mode,
-      ranked: room.ranked,
-      map: room.map,
-      playerCount,
-      stoneCount,
-      playerIndex: clientList[0].ownerIndex,
-      names: room.players.map((p) => p.name),
-      players: room.players,
-      aiFlags: room.aiFlags,
-      aiLevel: room.aiLevel,
-      state: room.engine.serialize(room.turnDeadline),
-    });
+    const initialState = room.engine.serialize(room.turnDeadline, room);
+    for (const client of clientList) {
+      send(client.ws, {
+        type: "game_started",
+        roomId,
+        mode,
+        ranked: room.ranked,
+        map: room.map,
+        playerCount,
+        stoneCount,
+        playerIndex: client.ownerIndex,
+        names: room.players.map((p) => p.name),
+        players: room.players,
+        aiFlags: room.aiFlags,
+        aiLevel: room.aiLevel,
+        state: initialState,
+      });
+    }
     console.log(`[ROOM CREATE] ${roomId} ${mode} ${room.players.map((p) => p.name).join(", ")}`);
   } catch (err) {
     console.error("[ROOM]", err);
@@ -836,12 +947,12 @@ async function finishRoom(room) {
 
   if (room.mode === "practice") {
     for (const client of room.clientList) {
-      send(client.ws, { type: "game_over", winner, draw, reward: { coin: 0, rp: null }, rp: null });
+      send(client.ws, { type: "practice_winner", winner, draw });
       client.roomId = null;
       client.ownerIndex = null;
     }
-    setTimeout(() => rooms.delete(room.id), 1500);
-    console.log(`[GAME OVER] ${room.id} practice winner=${winner} draw=${draw}`);
+    setTimeout(() => rooms.delete(room.id), 1200);
+    console.log(`[PRACTICE END] ${room.id} winner=${winner}`);
     return;
   }
 
@@ -897,13 +1008,14 @@ async function tickRooms() {
 
     if (room.engine.moving) {
       room.engine.step();
-      broadcastState(room, false);
       if (!room.engine.moving) {
         if (room.engine.winner != null || room.engine.draw) {
           await finishRoom(room);
         } else {
           startTurn(room);
         }
+      } else {
+        broadcastState(room, false);
       }
       continue;
     }
@@ -1041,6 +1153,37 @@ wss.on("connection", (ws) => {
             send(client.ws, { type: "buy_result", ok: true, account: publicAccount(client.account) });
           }
           break;
+        case "buy_trail":
+          if (requireAuth(client)) {
+            const id = String(msg.id || "");
+            const item = TRAILS[id];
+            if (!item || client.account.trails.includes(id)) {
+              send(client.ws, { type: "buy_result", ok: false, reason: "invalid" });
+              break;
+            }
+            if (client.account.coins < item.cost) {
+              send(client.ws, { type: "buy_result", ok: false, reason: "insufficient_funds", cost: item.cost });
+              break;
+            }
+            client.account.coins -= item.cost;
+            client.account.trails.push(id);
+            client.account.trail = id;
+            await saveAccount(client.account);
+            send(client.ws, { type: "buy_result", ok: true, account: publicAccount(client.account) });
+          }
+          break;
+        case "equip_trail":
+          if (requireAuth(client)) {
+            const id = String(msg.id || "");
+            if (!client.account.trails.includes(id)) {
+              send(client.ws, { type: "buy_result", ok: false, reason: "invalid" });
+              break;
+            }
+            client.account.trail = id;
+            await saveAccount(client.account);
+            send(client.ws, { type: "buy_result", ok: true, account: publicAccount(client.account) });
+          }
+          break;
         case "add_playtime":
           if (requireAuth(client)) {
             const seconds = Math.max(0, Math.min(3600, Math.round(Number(msg.seconds) || 0)));
@@ -1106,11 +1249,20 @@ async function leaveRoom(client) {
     return;
   }
 
-  // AI 전투 중 이탈은 플레이어 패배입니다. 연습은 기록 없이 종료합니다.
+  // AI 전투 중 이탈은 플레이어 패배입니다.
   if (room.mode === "ai") {
     room.engine.winner = room.playerCount > 1 ? 1 : null;
     room.engine.draw = room.engine.winner == null;
     await finishRoom(room);
+    return;
+  }
+
+  // 연습은 승/패 자체가 없으므로 기록이나 결과 화면 없이 종료합니다.
+  if (room.mode === "practice") {
+    room.finished = true;
+    rooms.delete(room.id);
+    client.roomId = null;
+    client.ownerIndex = null;
     return;
   }
 
